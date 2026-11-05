@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 const port = Number(process.env.CCA_E2E_PORT ?? 4171);
 const fixtures = fileURLToPath(new URL('./tests/fixtures/projects', import.meta.url));
+const codex = process.env.CCA_E2E_CODEX_DIR;
 const home = process.env.CCA_E2E_HOME ?? fileURLToPath(new URL('./.cca-e2e-home', import.meta.url));
 
 export default defineConfig({
@@ -17,7 +18,7 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 },
   },
   webServer: {
-    command: `node dist/server/cli.js --port ${port} --no-open --claude-dir "${fixtures}"`,
+    command: `node dist/server/cli.js --port ${port} --no-open --claude-dir "${fixtures}"${codex ? ` --codex-dir "${codex}"` : ''}`,
     url: `http://127.0.0.1:${port}/api/status`,
     reuseExistingServer: false,
     timeout: 120_000,

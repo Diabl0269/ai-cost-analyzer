@@ -113,13 +113,13 @@ export function requestCost(
   pricing: PricingConfig,
   resolver?: PriceResolver,
 ): RequestCostResult {
-  const flags = flagsOf(req);
+  const flags = { ...flagsOf(req), contextTokens: req.contextTokens };
   const resolve = resolver ?? ((model: string, f: PriceFlags) => resolvePrice(model, f, pricing));
   const resolved = resolve(req.model, flags);
   const iterations = req.iterations;
   if (iterations && iterations.length > 1) {
     const perIteration = iterations.map((it) =>
-      costOfUsage(it.usage, resolve(it.model || req.model, flags), pricing.webSearchPer1000),
+      costOfUsage(it.usage, resolve(it.model || req.model, { ...flags, contextTokens: contextTokensOf(it.usage) }), pricing.webSearchPer1000),
     );
     return { cost: sumBreakdowns(perIteration), resolved, perIteration };
   }

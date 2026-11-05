@@ -54,7 +54,7 @@ const GROUPED_USAGE = `
   SUM(cache5m) AS cache5m, SUM(cache1h) AS cache1h, SUM(cacheAssumed) AS cacheAssumed,
   SUM(thinking) AS thinking,
   SUM(webSearchRequests) AS webSearchRequests, SUM(webFetchRequests) AS webFetchRequests,
-  SUM(contextTokens) AS contextTokens,
+  contextTokens AS pricingContextTokens, SUM(contextTokens) AS contextTokens,
   SUM(CASE WHEN iterIndex = 0 THEN 1 ELSE 0 END) AS requests,
   COUNT(*) AS billedRequests`;
 
@@ -91,7 +91,7 @@ export function loadSessionCosts(
       `SELECT sessionId, agentId, model, speed, serviceTier, inferenceGeo, ${GROUPED_USAGE}
        FROM requests
        WHERE ${rangeClause}sessionId IN (SELECT s.id FROM sessions s${scope.sql})
-       GROUP BY sessionId, agentId, model, speed, serviceTier, inferenceGeo`,
+       GROUP BY sessionId, agentId, model, speed, serviceTier, inferenceGeo, contextTokens`,
     )
     .all(...rangeParams, ...scope.params) as Row[];
   const workflow = workflowAgents(db, scope);
@@ -134,7 +134,7 @@ export function loadModelRows(
     .prepare(
       `SELECT model, speed, serviceTier, inferenceGeo, ${GROUPED_USAGE}
        FROM requests WHERE sessionId = ?
-       GROUP BY model, speed, serviceTier, inferenceGeo`,
+       GROUP BY model, speed, serviceTier, inferenceGeo, contextTokens`,
     )
     .all(sessionId) as Row[];
   return groupModelRows(rows, resolve, pricing);
@@ -220,6 +220,8 @@ export function toSessionSummary(
 ): SessionSummary {
   const summary: SessionSummary = {
     id: str(row, 'id'),
+    provider: str(row, 'provider') === 'codex' ? 'codex' : 'claude',
+    ...(num(row, 'usageIncomplete') ? { usageIncomplete: true } : {}),
     projectId: str(row, 'projectId'),
     projectPath,
     title: str(row, 'title'),

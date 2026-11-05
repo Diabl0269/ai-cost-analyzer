@@ -29,11 +29,11 @@ export const SCENES: Scene[] = [
   {
     id: 'intro',
     narration:
-      'Claude Cost Analyzer prices every token Claude Code spends — on your own machine, from the transcripts it already writes.',
+      'AI Cost Analyzer prices every token Claude Code spends — on your own machine, from the transcripts it already writes.',
     min: 5,
     async run({ stage }) {
       await stage.safe('intro card', async () => {
-        await stage.card('intro', 'Claude Cost Analyzer', 'Every token, priced.');
+        await stage.card('intro', 'AI Cost Analyzer', 'Every token, priced.');
       });
       await stage.pause(2_500);
       await stage.safe('intro fade', () => stage.fadeCard());

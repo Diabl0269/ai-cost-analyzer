@@ -23,6 +23,7 @@ export interface StartServerOptions {
   home?: string;
   /** --claude-dir flag override */
   claudeDirFlag?: string;
+  codexDirFlag?: string;
 }
 
 export interface RunningServer {
@@ -35,7 +36,7 @@ export async function startServer(opts: StartServerOptions): Promise<RunningServ
   ensureHomeDir(paths.home);
 
   const config = ConfigStore.load(paths.configPath);
-  const roots = resolveRoots({ settingsRoots: config.get().settings.roots, claudeDirFlag: opts.claudeDirFlag });
+  const roots = resolveRoots({ settingsRoots: config.get().settings.roots, claudeDirFlag: opts.claudeDirFlag, codexDirFlag: opts.codexDirFlag });
 
   const store = createStore(paths.dbPath);
   const sse = createSseHub();

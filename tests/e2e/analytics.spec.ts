@@ -30,7 +30,7 @@ test.describe('analytics', () => {
     const problems = watchForProblems(page);
     await openRoute(page, `/analytics/tools?${RANGE}`);
     await expect(page.getByRole('heading', { level: 1, name: 'Tools' })).toBeVisible();
-    await expect(page).toHaveTitle(/^Tools · Claude Cost Analyzer$/);
+    await expect(page).toHaveTitle(/^Tools · AI Cost Analyzer$/);
 
     await expect(page.getByText('Tool cost', { exact: true })).toBeVisible();
     await expect(page.getByText('Carry share', { exact: true })).toBeVisible();

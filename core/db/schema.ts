@@ -20,7 +20,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { chmodSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const MEMORY_DB = ':memory:';
 
@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS sessions (
   id                   TEXT PRIMARY KEY,
   projectId            TEXT NOT NULL,
+  provider             TEXT NOT NULL DEFAULT 'claude',
+  usageIncomplete      INTEGER NOT NULL DEFAULT 0,
   cwd                  TEXT,
   title                TEXT NOT NULL,
   titleSource          TEXT NOT NULL,

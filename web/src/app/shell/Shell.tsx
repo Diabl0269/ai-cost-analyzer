@@ -8,9 +8,10 @@ import { FirstRun } from './FirstRun';
 import { LeftRail } from './LeftRail';
 import { TopBar } from './TopBar';
 import styles from './Shell.module.css';
+import { useDateRange } from '@/lib/range';
 
 const RAIL_STORAGE_KEY = 'cca.rail';
-const APP_NAME = 'Claude Cost Analyzer';
+const APP_NAME = 'AI Cost Analyzer';
 
 /**
  * The routes that are worth reading with an empty index: Settings (where the root is
@@ -43,6 +44,7 @@ function readCollapsed(): boolean {
 /** Application frame: top bar, rail, main landmark, palette, focus and title handling. */
 export function Shell() {
   const location = useLocation();
+  const range = useDateRange();
   const matches = useMatches();
   const mainRef = useRef<HTMLElement | null>(null);
   const lastPath = useRef<string | null>(null);
@@ -157,6 +159,7 @@ export function Shell() {
           />
           {drawerOpen ? <button type="button" className={styles.drawerScrim} aria-label="Close navigation" onClick={() => setDrawerOpen(false)} /> : null}
           <main id="main" className={styles.main} ref={mainRef}>
+            {!firstRun && range.provider !== 'claude' ? <p className="ui-xs muted" role="note">Codex amounts are API-price estimates, not your subscription bill. Claude-only attribution is unavailable for Codex.</p> : null}
             {showFirstRun ? <FirstRun roots={status.data?.roots ?? []} /> : <Outlet />}
           </main>
         </div>

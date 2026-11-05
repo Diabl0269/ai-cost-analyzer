@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from '@/lib/navigation';
 import type { ToolCallCost } from '@core/types';
 import { EmptyState } from '@/components/EmptyState';
 import { EstimateBadge } from '@/components/EstimateBadge';

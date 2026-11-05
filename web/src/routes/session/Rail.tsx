@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
+import { useNavigate } from '@/lib/navigation';
 import type { AgentNode, WorkflowRunNode } from '@core/types';
 import { Money } from '@/components/Money';
 import { Skeleton } from '@/components/Skeleton';

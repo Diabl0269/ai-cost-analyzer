@@ -1,4 +1,4 @@
-Claude Cost Analyzer prices every token Claude Code spends.
+AI Cost Analyzer prices every token Claude Code spends.
 Spend, requests, cache hit ratio, cost per prompt.
 The daily strip shows which days cost what.
 The same total, split by model, and by project.

@@ -106,8 +106,8 @@ export class SessionWriter {
         durationMs, activeMs, entrypoint, sessionKind, gitBranch, version, effort,
         promptCount, requestCount, toolCallCount, agentCount, workflowRunCount, compactionCount,
         apiErrorCount, hookRunCount, reportedCostUsd, reportedJson, continuedInSessionId, permissionMode,
-        prLinksJson, localCommandsJson, turnDurationsJson, modelsJson, filePath, lineCount
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`),
+        prLinksJson, localCommandsJson, turnDurationsJson, modelsJson, filePath, lineCount, provider, usageIncomplete
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`),
       insertSessionFts: db.prepare(
         'INSERT INTO sessions_fts (title, firstPrompt, projectPath, sessionId) VALUES (?,?,?,?)',
       ),
@@ -181,8 +181,14 @@ export class SessionWriter {
     const sessionId = session.discovered.sessionId;
     this.deleteSession(sessionId);
 
-    const projectId = session.discovered.projectDirName;
     const cwd = session.main.meta.cwd ?? '';
+    let projectId = session.discovered.projectDirName;
+    // Claude's directory encoding is lossy too. Preserve familiar IDs unless that ID already
+    // belongs to another exact folder, then use a reversible path key instead of merging them.
+    if (cwd) {
+      const collision = this.db.prepare('SELECT 1 FROM sessions WHERE projectId = ? AND cwd != ? LIMIT 1').get(projectId, cwd);
+      if (collision) projectId = `folder-${Buffer.from(cwd).toString('base64url')}`;
+    }
     this.statements['insertProject']?.run(
       projectId,
       projectId,
@@ -262,6 +268,8 @@ export class SessionWriter {
       JSON.stringify([...models]),
       session.discovered.mainFile.path,
       session.main.meta.lineCount,
+      session.discovered.provider ?? 'claude',
+      slots.some(slot => slot.transcript.meta.usageIncomplete) ? 1 : 0,
     );
     this.statements['insertSessionFts']?.run(title.title, firstPrompt, cwd || projectId, sessionId);
 

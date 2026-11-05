@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useSearchParams } from 'react-router';
+import { useNavigate } from '@/lib/navigation';
 import { Icon } from '@/components/Icon';
 import { useShortcuts } from '@/lib/keyboard';
 import styles from './GlobalSearch.module.css';

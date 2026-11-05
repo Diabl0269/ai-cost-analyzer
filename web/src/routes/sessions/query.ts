@@ -112,19 +112,20 @@ export function useSessionList(): SessionListState {
     );
   }, [setParams]);
 
-  const { from, to, project } = range.query;
+  const { from, to, project, provider } = range.query;
   const query = useMemo<SessionsQuery>(() => {
     const built: SessionsQuery = { sort: filters.sort, order: filters.order, limit: PAGE_SIZE };
     if (from) built.from = from;
     if (to) built.to = to;
     if (project) built.project = project;
+    if (provider) built.provider = provider;
     if (filters.q) built.q = filters.q;
     if (filters.model) built.model = filters.model;
     if (filters.entrypoint) built.entrypoint = filters.entrypoint;
     if (filters.pinned) built.pinned = true;
     if (filters.hasAgents) built.hasAgents = true;
     return built;
-  }, [from, to, project, filters]);
+  }, [from, to, project, provider, filters]);
 
   const activeCount = FILTER_KEYS.filter(
     (key) => key !== 'sort' && key !== 'order' && filters[key] !== DEFAULTS[key],

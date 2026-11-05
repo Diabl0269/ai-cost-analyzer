@@ -133,10 +133,10 @@ export function loadAgentTotals(
         SUM(input) AS input, SUM(output) AS output, SUM(cacheRead) AS cacheRead, SUM(cache5m) AS cache5m,
         SUM(cache1h) AS cache1h, SUM(cacheAssumed) AS cacheAssumed, SUM(thinking) AS thinking,
         SUM(webSearchRequests) AS webSearchRequests,
-        SUM(webFetchRequests) AS webFetchRequests, SUM(contextTokens) AS contextTokens,
+        SUM(webFetchRequests) AS webFetchRequests, contextTokens AS pricingContextTokens, SUM(contextTokens) AS contextTokens,
         SUM(CASE WHEN iterIndex = 0 THEN 1 ELSE 0 END) AS requests
        FROM requests WHERE sessionId = ?
-       GROUP BY agentId, model, speed, serviceTier, inferenceGeo`,
+       GROUP BY agentId, model, speed, serviceTier, inferenceGeo, contextTokens`,
     )
     .all(sessionId) as Row[];
   const out = new Map<string, AgentTotals>();

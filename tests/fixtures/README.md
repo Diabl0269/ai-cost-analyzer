@@ -227,3 +227,12 @@ Expected: 1 session, `agentFiles = [e2000000000000002]`, exactly 1 discovery war
 `main.requests === [msg_d1r1]`, `main.embeddedAgents = { e1000000000000001 }` whose single request
 sits at `seq 4` of the *main* file, and `deferred_tools_record` producing one injection with
 `charsSource: 'json'`.
+
+## Codex fixture
+
+`codex/sessions/2026/09/07/rollout-2026-09-07-codex-demo.jsonl` is invented Codex data,
+sharing `/Users/dev/projects/alpha` with Claude A1. It reports one usage increment: 1,000 input
+including 400 cached, 100 output including 20 reasoning. The repeated usage event adds no spend.
+At GPT-5.3-Codex standard API prices ($1.75 input, $0.175 cached, $14 output per million),
+expected cost is `(600*1.75 + 400*0.175 + 100*14)/1e6 = $0.00252`.
+This root is opt-in via `CCA_E2E_CODEX_DIR`, keeping the shared Claude fixture totals unchanged.

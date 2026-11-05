@@ -160,7 +160,7 @@ async function main(): Promise<void> {
   await writeFile(
     scriptFile,
     [
-      '# Claude Cost Analyzer — demo narration',
+      '# AI Cost Analyzer — demo narration',
       `# voice: ${voice} · rate ${178} wpm · planned total ${totalSeconds.toFixed(1)}s`,
       '',
       ...plan.map((item) => `[${(item.startMs / 1000).toFixed(1)}s · ${(item.durationMs / 1000).toFixed(1)}s] ${item.scene.id}\n${item.scene.narration}\n`),

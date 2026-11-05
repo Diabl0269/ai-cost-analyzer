@@ -169,6 +169,10 @@ export default function HooksTab() {
     },
   ];
 
+  if (detail.summary.provider === 'codex') {
+    return <EmptyState title="Attribution unavailable for Codex" description="Codex rollouts do not record Claude Code hook, skill, workflow or agent attribution. Missing records do not mean no overhead or delegation occurred." />;
+  }
+
   if (hooks.length === 0 && harness.length === 0 && detail.compactions.length === 0 && detail.apiErrors.length === 0) {
     return (
       <EmptyState

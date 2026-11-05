@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for looking at Claude Cost Analyzer. This is a local, single-user web app that reads Claude
+Thanks for looking at AI Cost Analyzer. This is a local, single-user web app that reads Claude
 Code transcripts from `~/.claude/projects` and prices every request, tool call, subagent, workflow,
 hook and harness injection at API list prices. The full design is `SPEC.md` (binding); the cost
 model is explained in `docs/METHODOLOGY.md`; per-module notes live in `docs/dev/*.md`.
@@ -102,7 +102,7 @@ session's comparison (`match`, `tally-includes-earlier-process`, `file-covers-mo
 
 ## Schema version bump = rebuild
 
-The DB is a rebuildable cache keyed by `PRAGMA user_version` (currently `SCHEMA_VERSION = 3`). A
+The DB is a rebuildable cache keyed by `PRAGMA user_version` (currently `SCHEMA_VERSION = 4`). A
 mismatch drops and recreates every table on next open — there are no migrations. Bump it whenever
 `core/db/schema.ts` changes shape.
 
@@ -128,3 +128,20 @@ mismatch drops and recreates every table on next open — there are no migration
    `~/.claude` or `~/.claude-cost-analyzer` during dev/test — use a scratch `CCA_HOME` and your own
    port, and stop every process you started.
 5. `node scripts/check-privacy.mjs` must exit 0 — no real names, paths, or transcript content.
+
+## Multiple AI tools
+
+`core/codex/` adapts Codex rollout files into the shared parser contract. Discovery records a
+provider (`claude` or `codex`), the index stores it on sessions, and `RangeQuery.provider` scopes
+all list/search/analytics/export queries. Missing provider means both. Shared projects merge by
+exact reported working directory, preserving Claude project IDs for existing links.
+
+Codex roots use `--codex-dir`, `CCA_CODEX_DIR`, or `CODEX_HOME`; archived rollouts are included.
+Keep dev/test roots explicit so no real local Codex sessions are indexed into test homes.
+No new dependencies are required. `ai-cost-analyzer` and the legacy `claude-cost-analyzer`
+executables use the same CLI. For mixed-source browser checks, set `CCA_E2E_CODEX_DIR` to
+`tests/fixtures/codex` and run `playwright test providers.spec.ts` after a build.
+
+The web navigation wrappers in `web/src/lib/navigation.tsx` preserve provider selection;
+`web/src/lib/provider.ts` owns parsing and URL propagation. Use these wrappers for internal
+links and navigation. `useDateRange` carries provider with date/project state to API queries.

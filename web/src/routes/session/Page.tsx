@@ -67,7 +67,7 @@ export default function SessionPage() {
         <h1>Session</h1>
         <Callout tone="warn" title={notFound ? 'No session with that id' : 'That session could not be loaded'}>
           {notFound
-            ? 'It may have been removed from ~/.claude/projects, or the index has not caught up yet.'
+            ? 'Its source transcript may have been removed, or the index has not caught up yet.'
             : 'The index may still be building. Try again once indexing finishes.'}
         </Callout>
       </div>

@@ -1,3 +1,4 @@
+import { providerLabel } from '@/lib/provider';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { plural } from '@core/pricing/format.js';
 import type { SessionSummary } from '@core/types';
@@ -5,6 +6,7 @@ import { Button, Money } from '@/components';
 import type { CurrencyDisplay } from '@/lib/format';
 import { formatDate, truncate } from '@/lib/format';
 import { useSessions } from '@/lib/queries';
+import { useDateRange } from '@/lib/range';
 import styles from './SessionPicker.module.css';
 
 export interface SessionPickerProps {
@@ -21,13 +23,14 @@ export interface SessionPickerProps {
  * addressed with `aria-activedescendant`, and Escape closes without changing the selection.
  */
 export function SessionPicker({ label, selected, selectedId, onSelect, currency }: SessionPickerProps) {
+  const range = useDateRange();
   const id = useId().replace(/:/g, '');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
 
-  const search = useSessions({ q: query.trim() || undefined, limit: 8, sort: 'recent' }, open);
+  const search = useSessions({ provider: range.provider, project: range.project, q: query.trim() || undefined, limit: 8, sort: 'recent' }, open);
   const options = useMemo(() => search.data?.sessions ?? [], [search.data]);
 
   useEffect(() => setActive(0), [options]);
@@ -74,7 +77,7 @@ export function SessionPicker({ label, selected, selectedId, onSelect, currency 
       <div className={styles.chosen}>
         <span className={styles.label}>{label}</span>
         <div className={styles.chosenHead}>
-          <span className={styles.chosenTitle}>{selected.title}</span>
+          <span className={styles.chosenTitle}>{providerLabel(selected.provider)} · {selected.title}</span>
           <Money usd={selected.cost.total} currency={currency} />
         </div>
         <span className={styles.chosenMeta}>
@@ -141,7 +144,7 @@ export function SessionPicker({ label, selected, selectedId, onSelect, currency 
             >
               <span className="truncate">{truncate(session.title, 52)}</span>
               <span className={styles.optionMeta}>
-                {formatDate(session.startedAt, 'day')} · <Money usd={session.cost.total} currency={currency} />
+                {providerLabel(session.provider)} · {formatDate(session.startedAt, 'day')} · <Money usd={session.cost.total} currency={currency} />
               </span>
             </li>
           ))}

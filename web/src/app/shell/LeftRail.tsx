@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { NavLink, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
+import { NavLink } from '@/lib/navigation';
 import type { ProjectSummary } from '@core/types';
 import { pluralNoun } from '@core/pricing/format.js';
 import { DateRange } from '@/components/DateRange';

@@ -145,6 +145,10 @@ export default function AttributionAnalyticsPage() {
     [],
   );
 
+  if (range.provider === 'codex') {
+    return <div className="stack"><PageHeader title="Attribution" /><EmptyState title="Attribution unavailable for Codex" description="Codex rollouts do not record Claude Code skills, workflows or harness attribution." /></div>;
+  }
+
   return (
     <div className={`stack stack-lg ${styles.page}`}>
       <PageHeader

@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link } from '@/lib/navigation';
 import type { OverviewResponse, RangeQuery } from '@core/types';
 import { plural } from '@core/pricing/format.js';
 import {
@@ -192,7 +192,7 @@ export default function OverviewPage() {
         title="Overview"
         lead={
           <>
-            {`${rangeSentence} · everything Claude Code did in that window, priced at list rates.`}
+            {`${rangeSentence} · recorded Claude Code and Codex usage, priced at API list rates.`}
             {priorComparable && previousBounds
               ? ` Compared with ${formatRangeSentence(previousBounds.from, previousBounds.to)}.`
               : ''}

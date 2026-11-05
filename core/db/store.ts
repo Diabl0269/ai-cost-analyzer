@@ -622,7 +622,7 @@ class SqliteStore implements Store {
       .filter((row) => row.sessions > 0 || row.requests > 0 || row.cost !== 0)
       .sort((a, b) => b.cost - a.cost);
 
-    const monthlyDaily = this.monthlyDaily(ctx, analytics.resolve);
+    const monthlyDaily = this.monthlyDaily(ctx, analytics.resolve, q);
     const insightsInput = buildInsightsInput(analytics, cost.total);
 
     return {
@@ -651,20 +651,21 @@ class SqliteStore implements Store {
   }
 
   /** Daily costs for the calendar month containing `now`, independent of the selected range. */
-  private monthlyDaily(ctx: QueryContext, resolve: PriceResolver): { date: string; cost: number }[] {
+  private monthlyDaily(ctx: QueryContext, resolve: PriceResolver, q: RangeQuery): { date: string; cost: number }[] {
     const now = nowOf(ctx);
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const providerScope = sessionScope({ provider: q.provider }, ctx.settings, { includeHidden: true });
     const rows = this.db
       .prepare(
         `SELECT dateLocal, model, speed, serviceTier, inferenceGeo,
           SUM(input) AS input, SUM(output) AS output, SUM(cacheRead) AS cacheRead, SUM(cache5m) AS cache5m,
           SUM(cache1h) AS cache1h, SUM(cacheAssumed) AS cacheAssumed, SUM(thinking) AS thinking,
           SUM(webSearchRequests) AS webSearchRequests,
-          SUM(webFetchRequests) AS webFetchRequests, SUM(contextTokens) AS contextTokens
-         FROM requests WHERE dateLocal LIKE ?
-         GROUP BY dateLocal, model, speed, serviceTier, inferenceGeo`,
+          SUM(webFetchRequests) AS webFetchRequests, contextTokens AS pricingContextTokens, SUM(contextTokens) AS contextTokens
+         FROM requests WHERE dateLocal LIKE ? AND sessionId IN (SELECT s.id FROM sessions s${providerScope.sql})
+         GROUP BY dateLocal, model, speed, serviceTier, inferenceGeo, contextTokens`,
       )
-      .all(`${month}-%`) as Row[];
+      .all(`${month}-%`, ...providerScope.params) as Row[];
     const byDate = new Map<string, number>();
     for (const row of rows) {
       const resolved = resolve(str(row, 'model'), flagsOf(row));

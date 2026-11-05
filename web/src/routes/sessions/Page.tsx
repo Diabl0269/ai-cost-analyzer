@@ -1,5 +1,6 @@
+import { providerLabel } from '@/lib/provider';
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate } from '@/lib/navigation';
 import { plural } from '@core/pricing/format.js';
 import type { SessionSort, SessionSummary } from '@core/types';
 import { Button } from '@/components/Button';
@@ -210,7 +211,7 @@ export default function SessionsPage() {
             ) : null}
           </span>
           <span className={styles.subLine} title={session.projectPath}>
-            {shortProjectPath(session.projectPath)}
+            {providerLabel(session.provider)} · {shortProjectPath(session.projectPath)}
             {session.gitBranch ? <span className={styles.branch}> · {session.gitBranch}</span> : null}
           </span>
           {/* Two columns is all a phone has room for, so the facts the other columns would have
@@ -316,7 +317,7 @@ export default function SessionsPage() {
       width: `${COLUMN_PX.agents}px`,
       headerTitle: 'Subagents this session launched, and workflow runs',
       cell: (session) =>
-        session.agentCount > 0 || session.workflowRunCount > 0 ? (
+        session.provider === 'codex' ? <span title="Agent and workflow attribution unavailable for Codex">{EM_DASH}</span> : session.agentCount > 0 || session.workflowRunCount > 0 ? (
           <span
             title={`${plural(session.agentCount, 'subagent')} and ${plural(session.workflowRunCount, 'workflow run')}`}
           >
@@ -331,7 +332,7 @@ export default function SessionsPage() {
       id: 'reported',
       header: <ReportedHeader />,
       width: `${COLUMN_PX.reported}px`,
-      cell: (session) => <ReportedBadge status={session.reportedStatus} />,
+      cell: (session) => session.provider === 'codex' ? <span title="Codex has no Claude Code cost-state tally">{EM_DASH}</span> : <ReportedBadge status={session.reportedStatus} />,
     };
 
     // Widest set that fits, never at the cost of the two columns that carry the answer.

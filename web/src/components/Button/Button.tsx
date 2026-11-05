@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import { Link, type LinkProps } from 'react-router';
+import { type LinkProps } from 'react-router';
+import { Link } from '@/lib/navigation';
 import { Icon, type IconName } from '@/components/Icon';
 import styles from './Button.module.css';
 

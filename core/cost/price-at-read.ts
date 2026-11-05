@@ -322,7 +322,7 @@ export function priceRequests(
   const out: RequestCost[] = [];
   for (const req of requests) {
     if (req.isSynthetic) continue;
-    const flags = { speed: req.speed, inferenceGeo: req.inferenceGeo, serviceTier: req.serviceTier };
+    const flags = { speed: req.speed, inferenceGeo: req.inferenceGeo, serviceTier: req.serviceTier, contextTokens: req.contextTokens };
     const resolved = resolve(req.model, flags);
     let cost: CostBreakdown;
     if (req.iterations && req.iterations.length > 1) {

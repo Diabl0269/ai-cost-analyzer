@@ -12,7 +12,7 @@ test.describe('how it works', () => {
     await openRoute(page, '/how-it-works');
 
     await expect(page.getByRole('heading', { level: 1, name: 'How it works' })).toBeVisible();
-    await expect(page).toHaveTitle(/^How it works · Claude Cost Analyzer$/);
+    await expect(page).toHaveTitle(/^How it works · AI Cost Analyzer$/);
 
     for (const name of [
       /Where the numbers come from/,

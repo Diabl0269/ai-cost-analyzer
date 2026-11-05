@@ -1,4 +1,4 @@
-# Claude Cost Analyzer
+# AI Cost Analyzer
 
 A local, single-user web app that reads Claude Code transcripts from `~/.claude/projects` and
 prices every conversation, turn, tool call, subagent, workflow, hook and harness injection at API
@@ -10,6 +10,31 @@ Full narrated tour: [`docs/demo/demo.mp4`](docs/demo/demo.mp4) (GitHub plays it 
 viewer) · hero screenshot: [`docs/screenshots/hero-overview.paper.png`](docs/screenshots/hero-overview.paper.png).
 Every image and the video above are the app's own bundled synthetic demo dataset (`npm run demo`)
 — none of it is a real conversation.
+
+
+## Claude Code and Codex
+
+AI Cost Analyzer reads Claude Code and Codex locally. Use the **Provider** selector to view
+**All providers**, **Claude**, or **Codex** across overview, sessions, search, analytics, and exports.
+Sessions with the same working directory share one project in the folder tree.
+
+Codex rollout files are discovered in `~/.codex/sessions` and `~/.codex/archived_sessions`
+(or under `CODEX_HOME`). To choose sources explicitly:
+
+```sh
+node bin/cca.mjs --claude-dir /path/to/claude/projects --codex-dir /path/to/codex --no-open
+```
+
+`--codex-dir` / `CCA_CODEX_DIR` accept a Codex home or a rollout directory. Explicit source
+overrides replace saved/default roots; supplying both combines them. You can also edit roots in Settings.
+`ai-cost-analyzer` is the new executable name; `claude-cost-analyzer` remains an alias.
+Existing `CCA_*` environment variables and `~/.claude-cost-analyzer` settings remain compatible.
+
+Codex amounts are **API list-price estimates**, not ChatGPT subscription charges. Input tokens
+exclude the cached portion before pricing; reasoning tokens are already included in output.
+Unknown models remain visibly unpriced until you add a price in Settings. Codex-only records
+that have no equivalent of Claude hooks, workflows, or reported billing are left unavailable.
+
 
 ## Why
 

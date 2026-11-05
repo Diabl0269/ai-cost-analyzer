@@ -9,6 +9,7 @@
  */
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
+import { readProvider, type Provider } from './provider.js';
 import type { RangeQuery } from '../../../core/types.js';
 import { fromIsoDay, formatDate, toIsoDay } from './format.js';
 
@@ -187,6 +188,8 @@ export interface DateRangeStore {
   /** RangeQuery for the API, including the current project filter. */
   query: RangeQuery;
   project?: string;
+  provider?: Provider;
+  setProvider: (provider: Provider | undefined) => void;
   setProject: (projectId: string | undefined) => void;
 }
 
@@ -196,6 +199,7 @@ export function useDateRange(): DateRangeStore {
   const from = params.get('from') ?? undefined;
   const to = params.get('to') ?? undefined;
   const project = params.get('project') ?? undefined;
+  const provider = readProvider(params.toString());
 
   const write = useCallback(
     (next: { from?: string; to?: string; project?: string }) => {
@@ -233,9 +237,20 @@ export function useDateRange(): DateRangeStore {
     [write, from, to],
   );
 
+  const setProvider = useCallback((next: Provider | undefined) => {
+    setParams((current) => {
+      const updated = new URLSearchParams(current);
+      if (next) updated.set('provider', next);
+      else updated.delete('provider');
+      // Pagination cursors are only valid for their original provider.
+      updated.delete('cursor');
+      return updated;
+    }, { replace: true, preventScrollReset: true });
+  }, [setParams]);
+
   return useMemo<DateRangeStore>(() => {
     const value: DateRangeValue = { preset: matchPreset(from, to), from, to };
-    const query: RangeQuery = { from, to, project };
-    return { value, setPreset, setBounds, query, project, setProject };
-  }, [from, to, project, setPreset, setBounds, setProject]);
+    const query: RangeQuery = { from, to, project, provider };
+    return { value, setPreset, setBounds, query, project, setProject, provider, setProvider };
+  }, [from, to, project, provider, setPreset, setBounds, setProject, setProvider]);
 }

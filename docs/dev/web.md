@@ -184,7 +184,7 @@ resets after a stream that stayed open ≥ 10s.
 
 1. `web/src/routes/<name>/Page.tsx` with a **default export** (plus `Page.module.css` if needed).
 2. Register it in `web/src/app/routes.tsx`: `{ path: 'x', handle: { title: 'X' }, lazy: lazyPage(() => import('@/routes/x/Page')) }`.
-   `handle.title` becomes `document.title` (`"X · Claude Cost Analyzer"`).
+   `handle.title` becomes `document.title` (`"X · AI Cost Analyzer"`).
 3. Render exactly one `<h1>` — the shell moves focus to it after every navigation.
 4. Loading → `<Skeleton>` or `<LedgerTable loading>`. Empty → `<EmptyState>`. Error → let it throw
    (the route `errorElement` is `RouteError`) or render a `<Callout tone="warn">` for a partial failure.

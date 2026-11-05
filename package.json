@@ -1,22 +1,23 @@
 {
-  "name": "claude-cost-analyzer",
+  "name": "ai-cost-analyzer",
   "version": "0.1.0",
   "private": true,
-  "description": "Local cost analyzer for Claude Code conversations: every token, accounted for.",
+  "description": "Local cost analyzer for Claude Code and Codex conversations: every token, accounted for.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Diabl0269/claude-cost-analyzer.git"
+    "url": "https://github.com/Diabl0269/ai-cost-analyzer.git"
   },
-  "homepage": "https://github.com/Diabl0269/claude-cost-analyzer#readme",
+  "homepage": "https://github.com/Diabl0269/ai-cost-analyzer#readme",
   "bugs": {
-    "url": "https://github.com/Diabl0269/claude-cost-analyzer/issues"
+    "url": "https://github.com/Diabl0269/ai-cost-analyzer/issues"
   },
   "engines": {
     "node": ">=22.13 <23 || >=24"
   },
   "bin": {
+    "ai-cost-analyzer": "bin/cca.mjs",
     "claude-cost-analyzer": "bin/cca.mjs"
   },
   "scripts": {

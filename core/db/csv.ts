@@ -37,6 +37,7 @@ const HEADER = [
   'costAgentsUsd',
   'costWorkflowsUsd',
   'reportedCostUsd',
+  'provider',
 ];
 
 /** Cell openers a spreadsheet reads as the start of a formula rather than as text. */
@@ -99,6 +100,7 @@ export function sessionsToCsv(sessions: readonly SessionSummary[]): string {
         csvField(money(s.costAgents)),
         csvField(money(s.costWorkflows)),
         csvField(s.reportedCostUsd === null ? '' : money(s.reportedCostUsd)),
+        csvText(s.provider ?? 'claude'),
       ].join(','),
     );
   }

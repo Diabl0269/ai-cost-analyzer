@@ -442,7 +442,7 @@ function TurnHeader({
         <span className={styles.turnPreview}>
           {isAgent
             ? 'the brief this agent was launched with, and everything loaded around it'
-            : 'everything Claude Code loaded before your first prompt'}
+            : 'recorded context before your first prompt'}
         </span>
       </div>
     );
@@ -579,7 +579,7 @@ function MessageRow({
     return (
       <article className={[styles.message, styles.assistant, highlighted ? styles.highlight : null].filter(Boolean).join(' ')}>
         <header className={styles.messageHead}>
-          <span className={styles.who}>Claude</span>
+          <span className={styles.who}>Assistant</span>
           <span className={styles.seq}>#{message.seq}</span>
           {message.ts ? <span className={styles.when}>{formatDate(message.ts, 'time')}</span> : null}
           {message.request ? <RequestChip request={message.request} /> : <span className={styles.muted}>continued message</span>}

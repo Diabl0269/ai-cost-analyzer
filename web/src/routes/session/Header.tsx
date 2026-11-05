@@ -1,4 +1,5 @@
-import { Link } from 'react-router';
+import { providerLabel } from '@/lib/provider';
+import { Link } from '@/lib/navigation';
 import type { SessionDetail } from '@core/types';
 import { Button } from '@/components/Button';
 import { Duration } from '@/components/Duration';
@@ -24,11 +25,11 @@ interface Fact {
 
 function factsOf(detail: SessionDetail): Fact[] {
   const { summary } = detail;
-  const facts: Fact[] = [];
+  const facts: Fact[] = [{ label: 'Provider', value: providerLabel(summary.provider) }];
   if (summary.entrypoint) facts.push({ label: 'Entrypoint', value: summary.entrypoint });
   if (summary.sessionKind) facts.push({ label: 'Kind', value: summary.sessionKind });
   if (summary.gitBranch) facts.push({ label: 'Branch', value: summary.gitBranch });
-  if (summary.version) facts.push({ label: 'Claude Code', value: summary.version });
+  if (summary.version) facts.push({ label: providerLabel(summary.provider), value: summary.version });
   if (summary.effort) facts.push({ label: 'Effort', value: summary.effort });
   if (detail.facts.permissionMode) facts.push({ label: 'Permissions', value: detail.facts.permissionMode });
   return facts;
@@ -101,6 +102,8 @@ export function SessionHeader({ detail, whatIf }: SessionHeaderProps) {
         </div>
       </div>
 
+      {summary.provider === 'codex' ? <p className="ui-sm muted">Codex amounts are API-price estimates, not your subscription bill. Hook, skill, workflow and agent attribution is unavailable in Codex rollouts.</p> : null}
+      {summary.usageIncomplete ? <p className="ui-sm muted" role="note">Usage incomplete — totals cover recorded tokens only.</p> : null}
       <dl className={styles.facts}>
         <div className={styles.fact}>
           <dt>Ran</dt>
@@ -126,12 +129,12 @@ export function SessionHeader({ detail, whatIf }: SessionHeaderProps) {
             <dd className={styles.factValue}>{fact.value}</dd>
           </div>
         ))}
-        <div className={styles.fact}>
+        {summary.provider !== 'codex' ? <div className={styles.fact}>
           <dt>Claude Code’s tally</dt>
           <dd>
             <ReportedBadge status={summary.reportedStatus} comparison={detail.facts.reportedComparison} />
           </dd>
-        </div>
+        </div> : null}
       </dl>
 
       {chain.length > 1 || prs.length > 0 ? (

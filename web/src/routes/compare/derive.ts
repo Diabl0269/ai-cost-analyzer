@@ -50,8 +50,8 @@ export function row(
     id,
     label,
     kind,
-    a: a ? pick(a) : null,
-    b: b ? pick(b) : null,
+    a: a && !(a.summary.provider === 'codex' && ['agents', 'workflows', 'hooks', 'harness', 'hookTime'].includes(id)) ? pick(a) : null,
+    b: b && !(b.summary.provider === 'codex' && ['agents', 'workflows', 'hooks', 'harness', 'hookTime'].includes(id)) ? pick(b) : null,
     ...(options.note === undefined ? {} : { note: options.note }),
     ...(options.emphasis === undefined ? {} : { emphasis: options.emphasis }),
   };

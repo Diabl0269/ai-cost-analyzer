@@ -23,7 +23,7 @@ test.describe('settings', () => {
     const problems = watchForProblems(page);
     await openRoute(page, '/settings');
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
-    await expect(page).toHaveTitle(/^Settings · Claude Cost Analyzer$/);
+    await expect(page).toHaveTitle(/^Settings · AI Cost Analyzer$/);
 
     for (const section of ['Pricing', 'Plan', 'Budget', 'Currency', 'Appearance', 'Data']) {
       await expect(page.getByRole('region', { name: section })).toBeVisible();

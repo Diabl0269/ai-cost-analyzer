@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { Link } from '@/lib/navigation';
 import { plural } from '@core/pricing/format.js';
 import type { ModelCostRow, RequestCost } from '@core/types';
 import { Callout } from '@/components/Callout';
@@ -182,7 +182,7 @@ export default function SummaryTab() {
               { id: 'total', label: 'Session total', value: <Money usd={summary.cost.total} />, emphasis: 'total' },
             ]}
           />
-          {reported ? (
+          {summary.provider === 'codex' ? <p className={styles.tallyNote}>Codex does not report a Claude Code cost-state tally. API list-price estimates cannot be reconciled with a subscription bill.</p> : reported ? (
             <div className={styles.tally}>
               <Receipt
                 dense
@@ -212,7 +212,7 @@ export default function SummaryTab() {
       <section className="stack stack-sm">
         <div className="section-head">
           <h2>By model</h2>
-          <span className={styles.note}>Exact, per billed request</span>
+          <span className={styles.note}>Per recorded request, at API list prices</span>
         </div>
         <LedgerTable
           columns={modelColumns}
@@ -335,7 +335,7 @@ export default function SummaryTab() {
           </div>
           <div className="panel panel-pad stack stack-sm">
             {detail.compactions.length === 0 ? (
-              <p className={styles.note}>No compaction — the context never had to be rebuilt.</p>
+              <p className={styles.note}>No compaction recorded in this transcript.</p>
             ) : (
               detail.compactions.map((compaction) => (
                 <div key={`${compaction.agentId ?? 'main'}-${compaction.seq}`} className={styles.compaction}>

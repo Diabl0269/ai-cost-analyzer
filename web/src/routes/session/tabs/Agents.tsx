@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from '@/lib/navigation';
 import type { AgentNode, WorkflowRunNode } from '@core/types';
 import { Duration } from '@/components/Duration';
 import { EmptyState } from '@/components/EmptyState';
@@ -155,6 +155,10 @@ export default function AgentsTab() {
       ),
     },
   ];
+
+  if (detail.summary.provider === 'codex') {
+    return <EmptyState title="Attribution unavailable for Codex" description="Codex rollouts do not record Claude Code hook, skill, workflow or agent attribution. Missing records do not mean no overhead or delegation occurred." />;
+  }
 
   if (rows.length === 0) {
     return (

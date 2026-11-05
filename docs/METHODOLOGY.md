@@ -1,4 +1,4 @@
-# How Claude Cost Analyzer computes costs
+# How AI Cost Analyzer computes costs
 
 Every number in the app is one of two kinds, and the UI always says which:
 
@@ -197,3 +197,25 @@ The month-end forecast is linear: spend so far ÷ days elapsed × days in month.
 - Volume discounts, credits, and enterprise contracts. Enter your effective prices in Settings if yours
   differ from list.
 - Conversations whose transcripts were deleted or trimmed by Claude Code cleanup are gone from the data.
+
+## Codex rollout accounting
+
+Codex is normalized to the same token, request, tool, transcript, search, and export contracts.
+A Codex input total includes cached tokens: uncached input is `input_tokens - cached_input_tokens`
+(clamped at zero). Reasoning tokens are a subset of output and are never billed a second time.
+Repeated cumulative token-count notifications do not create another billed request. Prices are
+read-time API list-price estimates, not the amount charged by a ChatGPT subscription. Missing
+usage and unknown models must not be filled with guessed costs. OpenAI default price entries cite
+[official OpenAI pricing](https://developers.openai.com/api/docs/pricing); user overrides still win.
+
+Provider filtering applies before aggregation. A project represents an exact reported working
+folder across Claude Code and Codex; provider-specific session IDs prevent cross-tool collisions.
+Claude hook/workflow and reported-tally features rely on Claude metadata and do not imply that
+Codex records those same facts.
+
+Published GPT-6 long-context premiums apply per request above 272,000 input tokens (cached
+input included): input/cache rates double and output rates multiply by 1.5. Aggregation preserves
+each request's context size before pricing, so many short requests never trigger a long-context
+premium. Unsupported tariffs/models remain unpriced; hidden service charges and inherited fork
+history are not inferred from rollout content. For those cases the recorded-token view is not a
+complete billing ledger.

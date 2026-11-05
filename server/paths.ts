@@ -3,7 +3,7 @@
  * transcript roots to index. Ensures directories/files have restrictive permissions since
  * the DB and config may contain (derived) cost data for the user's private transcripts.
  */
-import { existsSync, mkdirSync, chmodSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, chmodSync, statSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, resolve, sep } from 'node:path';
 
@@ -73,20 +73,50 @@ export interface ResolveRootsOptions {
   settingsRoots?: string[];
   /** --claude-dir CLI flag */
   claudeDirFlag?: string;
+  /** --codex-dir CLI flag: Codex home or a sessions/archived_sessions directory */
+  codexDirFlag?: string;
   env?: NodeJS.ProcessEnv;
 }
 
 /**
- * Resolves the transcript roots to index. `--claude-dir`/`CCA_CLAUDE_DIR` override the
- * configured roots entirely (single root); otherwise the settings roots are used, falling
- * back to `~/.claude/projects`. All results are absolute, `~`-expanded paths.
+ * Explicit Claude/Codex selections override configured roots and may be combined.
+ * Without overrides, the legacy default adds Codex session roots honoring CODEX_HOME.
+ * Custom settings roots remain unchanged. Results are absolute and `~`-expanded.
  */
 export function resolveRoots(opts: ResolveRootsOptions = {}): string[] {
   const env = opts.env ?? process.env;
-  const override = opts.claudeDirFlag ?? env.CCA_CLAUDE_DIR;
-  if (override) return [resolve(expandHome(override))];
-  const roots = opts.settingsRoots && opts.settingsRoots.length > 0 ? opts.settingsRoots : [DEFAULT_ROOT];
-  return roots.map((r) => resolve(expandHome(r)));
+  const claude = opts.claudeDirFlag ?? env.CCA_CLAUDE_DIR;
+  const codex = opts.codexDirFlag ?? env.CCA_CODEX_DIR;
+  // An explicit source selection stays isolated (including fixtures and demo runs).
+  if (claude || codex) {
+    return [...new Set([
+      ...(claude ? [resolve(expandHome(claude))] : []),
+      ...(codex ? codexRoots(codex) : []),
+    ])];
+  }
+  const configured = opts.settingsRoots?.length ? opts.settingsRoots : [DEFAULT_ROOT];
+  // Upgrade only the legacy default, preserving deliberately configured custom roots.
+  const roots = configured.length === 1 && resolve(expandHome(configured[0]!)) === resolve(expandHome(DEFAULT_ROOT))
+    ? [...configured, ...codexRoots(env.CODEX_HOME ?? '~/.codex')]
+    : configured;
+  return [...new Set(roots.map((r) => {
+    if (env.CODEX_HOME && (r === '~/.codex/sessions' || r === '~/.codex/archived_sessions')) {
+      return resolve(expandHome(join(env.CODEX_HOME, r.endsWith('/sessions') ? 'sessions' : 'archived_sessions')));
+    }
+    return resolve(expandHome(r));
+  }))];
+}
+
+/** Restrict a Codex home to its transcript directories; never walk auth/config files. */
+export function codexRoots(directory: string): string[] {
+  const root = resolve(expandHome(directory));
+  const leaf = root.split(sep).at(-1);
+  if (leaf === 'sessions' || leaf === 'archived_sessions') return [root];
+  try {
+    // A user may point at an exported or dated rollout folder rather than a Codex home.
+    if (readdirSync(root).some(name => /^rollout-.*\.jsonl$/.test(name))) return [root];
+  } catch { /* A not-yet-created Codex home still resolves to its known transcript roots. */ }
+  return [join(root, 'sessions'), join(root, 'archived_sessions')];
 }
 
 /** True when `child` is `dir` or a path inside it, after normalization (guards path traversal). */

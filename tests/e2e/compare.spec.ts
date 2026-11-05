@@ -23,9 +23,9 @@ test.describe('compare', () => {
     const problems = watchForProblems(page);
     await openRoute(page, '/compare');
     await expect(page.getByRole('heading', { level: 1, name: 'Compare sessions' })).toBeVisible();
-    await expect(page).toHaveTitle(/^Compare · Claude Cost Analyzer$/);
+    await expect(page).toHaveTitle(/^Compare · AI Cost Analyzer$/);
     await expect(page.getByText('Choose two sessions')).toBeVisible();
-    await expect(page.getByRole('combobox').first()).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Session A', exact: true })).toBeVisible();
     assertNoProblems(problems, '/compare');
   });
 
@@ -34,7 +34,7 @@ test.describe('compare', () => {
     test.skip(ids === null, 'the fixture root has fewer than two sessions');
 
     await openRoute(page, '/compare');
-    const combo = page.getByRole('combobox').first();
+    const combo = page.getByRole('combobox', { name: 'Session A', exact: true });
     await combo.click();
     const listbox = page.getByRole('listbox', { name: 'Session A' });
     await expect(listbox).toBeVisible();
@@ -72,7 +72,7 @@ test.describe('compare', () => {
    */
   test('the typeahead announces how many sessions it found', async ({ page }) => {
     await openRoute(page, '/compare');
-    const combo = page.getByRole('combobox').first();
+    const combo = page.getByRole('combobox', { name: 'Session A', exact: true });
     await combo.click();
 
     const listbox = page.getByRole('listbox', { name: 'Session A' });

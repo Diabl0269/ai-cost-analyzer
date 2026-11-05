@@ -5,6 +5,7 @@
  * Assistant messages are split across several JSONL lines that share `message.id` (SPEC §3.3), so
  * their blocks are merged back into the first line of the message.
  */
+import { normalizeCodexLine } from '../codex/normalize.js';
 import type { DatabaseSync } from 'node:sqlite';
 import type {
   MessageKind,
@@ -91,6 +92,10 @@ function contentBlocks(content: unknown): TranscriptBlock[] {
 /** Builds the display blocks for one raw JSONL line. */
 export function blocksForLine(line: Record<string, unknown> | null): TranscriptBlock[] {
   if (!line) return [{ type: 'other', label: 'unavailable' }];
+  if (line['type'] === 'response_item' || line['type'] === 'event_msg' || line['type'] === 'compacted') {
+    const normalized = normalizeCodexLine(line);
+    if (normalized) return blocksForLine(normalized);
+  }
   const type = typeof line['type'] === 'string' ? line['type'] : '';
   if (type === 'user' || type === 'assistant') {
     const message = asRecord(line['message']);

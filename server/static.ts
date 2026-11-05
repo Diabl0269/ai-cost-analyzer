@@ -32,7 +32,7 @@ const MIME_TYPES: Record<string, string> = {
 
 const DEV_NOTICE = `<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Claude Cost Analyzer</title></head>
+<head><meta charset="utf-8"><title>AI Cost Analyzer</title></head>
 <body>
   <p>Run <code>npm run build</code>, or use <code>npm run dev</code> and open
   <a href="http://127.0.0.1:5173/">http://127.0.0.1:5173/</a>.</p>
