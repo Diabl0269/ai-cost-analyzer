@@ -12,10 +12,10 @@ Every image and the video above are the app's own bundled synthetic demo dataset
 — none of it is a real conversation.
 
 
-## Claude Code and Codex
+## Claude Code, Codex and GitHub Copilot
 
-AI Cost Analyzer reads Claude Code and Codex locally. Use the **Provider** selector to view
-**All providers**, **Claude**, or **Codex** across overview, sessions, search, analytics, and exports.
+AI Cost Analyzer reads Claude Code, Codex and GitHub Copilot locally. Use the **Provider** selector to view
+**All providers**, **Claude**, **Codex**, or **Copilot** across overview, sessions, search, analytics, and exports.
 Sessions with the same working directory share one project in the folder tree.
 
 Codex rollout files are discovered in `~/.codex/sessions` and `~/.codex/archived_sessions`
@@ -34,6 +34,16 @@ Codex amounts are **API list-price estimates**, not ChatGPT subscription charges
 exclude the cached portion before pricing; reasoning tokens are already included in output.
 Unknown models remain visibly unpriced until you add a price in Settings. Codex-only records
 that have no equivalent of Claude hooks, workflows, or reported billing are left unavailable.
+
+
+Copilot CLI and the GitHub Copilot app are discovered under `~/.copilot/session-state`
+(or `COPILOT_HOME`). Saved VS Code, Code Insiders and VSCodium chats are detected from
+local editor storage. Use `--copilot-dir` / `CCA_COPILOT_DIR` to select a Copilot home,
+session-state folder or editor transcript root explicitly. Existing custom roots stay unchanged.
+Copilot totals are API-price estimates, not premium request charges or your subscription bill.
+Saved session totals cannot establish individual request/tool costs; VS Code chats without
+billing telemetry remain readable with unavailable costs. GitHub cloud-only sessions and other
+IDE-specific stores are not imported. See [source coverage and limitations](docs/dev/copilot.md).
 
 
 ## Why

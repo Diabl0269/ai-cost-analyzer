@@ -1,3 +1,4 @@
+import { providerLabel } from '@/lib/provider';
 import { useMemo } from 'react';
 import type { CompactionRow, HookRunRow, InjectionCost } from '@core/types';
 import { Duration } from '@/components/Duration';
@@ -169,8 +170,8 @@ export default function HooksTab() {
     },
   ];
 
-  if (detail.summary.provider === 'codex') {
-    return <EmptyState title="Attribution unavailable for Codex" description="Codex rollouts do not record Claude Code hook, skill or workflow attribution. Missing records do not mean no overhead or delegation occurred." />;
+  if ((detail.summary.provider === 'codex' || detail.summary.provider === 'copilot')) {
+    return <EmptyState title={`Attribution unavailable for ${providerLabel(detail.summary.provider)}`} description="These transcripts do not record Claude Code hook, skill or workflow attribution. Missing records do not mean no overhead or delegation occurred." />;
   }
 
   if (hooks.length === 0 && harness.length === 0 && detail.compactions.length === 0 && detail.apiErrors.length === 0) {

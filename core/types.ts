@@ -6,12 +6,12 @@
 
 // ───────────────────────────── Discovery ─────────────────────────────
 
-export type Provider = 'claude' | 'codex';
+export type Provider = 'claude' | 'codex' | 'copilot';
 
 export type TranscriptKind = 'main' | 'subagent' | 'workflow-agent';
 
 export interface DiscoveredFile {
-  provider?: 'claude' | 'codex';
+  provider?: 'claude' | 'codex' | 'copilot';
   path: string;
   size: number;
   mtimeMs: number;
@@ -44,7 +44,7 @@ export interface DiscoveredWorkflowRun {
 }
 
 export interface DiscoveredSession {
-  provider?: 'claude' | 'codex';
+  provider?: 'claude' | 'codex' | 'copilot';
   projectDirName: string;
   projectDirPath: string;
   sessionId: string;
@@ -289,6 +289,8 @@ export interface ParsedApiError {
 export interface TranscriptMeta {
   /** Assistant output exists in a turn with no reported billing usage. */
   usageIncomplete?: boolean;
+  /** Visible model identities even when saved history contains no billing telemetry. */
+  recordedModels?: string[];
   cwd?: string;
   gitBranch?: string;
   version?: string;
@@ -644,6 +646,8 @@ export interface SessionsResponse {
 }
 
 export interface RequestCost {
+  /** Session accounting bucket; not an observed individual API call. */
+  usageGranularity?: 'session';
   seq: number;
   turnIndex: number;
   ts: string;

@@ -14,13 +14,13 @@ afterEach(() => temporary.splice(0).forEach((path) => rmSync(path, { recursive: 
 
 describe('transcript source selection', () => {
   it('defaults to both transcript providers without selecting credential roots', () => {
-    expect(resolveRoots({ env: {} })).toEqual([
+    expect(resolveRoots({ env: {} })).toEqual(expect.arrayContaining([
       join(homedir(), '.claude/projects'), join(homedir(), '.codex/sessions'),
-      join(homedir(), '.codex/archived_sessions'),
-    ]);
-    expect(resolveRoots({ env: { CODEX_HOME: '/synthetic/codex' } })).toEqual([
-      join(homedir(), '.claude/projects'), '/synthetic/codex/sessions', '/synthetic/codex/archived_sessions',
-    ]);
+      join(homedir(), '.codex/archived_sessions'), join(homedir(), '.copilot/session-state'),
+    ]));
+    expect(resolveRoots({ env: { CODEX_HOME: '/synthetic/codex' } })).toEqual(expect.arrayContaining([
+      join(homedir(), '.claude/projects'), '/synthetic/codex/sessions', '/synthetic/codex/archived_sessions', join(homedir(), '.copilot/session-state'),
+    ]));
     expect(resolveRoots({ settingsRoots: defaultSettings().roots, env: { CODEX_HOME: '/synthetic/codex' } })).toContain('/synthetic/codex/sessions');
   });
   it('keeps custom and explicit Claude fixture roots isolated', () => {
@@ -42,6 +42,20 @@ describe('transcript source selection', () => {
     expect(flags.reindex).toBe(true);
     expect(() => parseFlags(['--codex-dir'], {})).toThrow('invalid --codex-dir');
     expect(() => parseFlags(['--demo', '--codex-dir', '/synthetic/codex'], {})).toThrow('mutually exclusive');
+  });
+  it('selects Copilot CLI/app and editor roots explicitly, honors COPILOT_HOME and keeps demos isolated', () => {
+    expect(resolveRoots({ copilotDirFlag: '/synthetic/copilot', env: {} })).toEqual(['/synthetic/copilot/session-state']);
+    expect(resolveRoots({ copilotDirFlag: '/synthetic/Code/User', env: {} })).toEqual(['/synthetic/Code/User']);
+    expect(resolveRoots({ env: { CCA_COPILOT_DIR: '/synthetic/session-state' } })).toEqual(['/synthetic/session-state']);
+    expect(resolveRoots({ env: { COPILOT_HOME: '/synthetic/custom-copilot' } })).toContain('/synthetic/custom-copilot/session-state');
+    expect(resolveRoots({ claudeDirFlag: '/synthetic/demo', copilotDirFlag: '', env: { CCA_COPILOT_DIR: '/synthetic/real' } })).toEqual(['/synthetic/demo']);
+    expect(parseFlags(['--copilot-dir', '/synthetic/copilot'], {}).copilotDir).toBe('/synthetic/copilot');
+    expect(() => parseFlags(['--copilot-dir'], {})).toThrow('invalid --copilot-dir');
+    expect(() => parseFlags(['--demo', '--copilot-dir', '/synthetic/copilot'], {})).toThrow('mutually exclusive');
+    const root = join(homedir(), '.copilot');
+    expect(validateRoots([root], '/synthetic/cca', [root]).violations[0]?.reason).toBe('sensitive_location');
+    const sessions = join(root, 'session-state');
+    expect(validateRoots([sessions], '/synthetic/cca', [sessions]).ok).toBe(true);
   });
   it('denies the default Codex home and credentials but allows transcript roots', () => {
     const home = join(homedir(), '.codex');

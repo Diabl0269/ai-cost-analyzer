@@ -121,7 +121,7 @@ export function useSessionList(): SessionListState {
     if (provider) built.provider = provider;
     if (filters.q) built.q = filters.q;
     if (filters.model) built.model = filters.model;
-    if (filters.entrypoint && provider !== 'codex') built.entrypoint = filters.entrypoint;
+    if (filters.entrypoint && provider !== 'codex' && provider !== 'copilot') built.entrypoint = filters.entrypoint;
     if (filters.pinned) built.pinned = true;
     if (filters.hasAgents) built.hasAgents = true;
     return built;

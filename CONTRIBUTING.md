@@ -132,8 +132,8 @@ mismatch drops and recreates every table on next open — there are no migration
 ## Multiple AI tools
 
 `core/codex/` adapts Codex rollout files into the shared parser contract. Discovery records a
-provider (`claude` or `codex`), the index stores it on sessions, and `RangeQuery.provider` scopes
-all list/search/analytics/export queries. Missing provider means both. Shared projects merge by
+provider (`claude`, `codex` or `copilot`), the index stores it on sessions, and `RangeQuery.provider` scopes
+all list/search/analytics/export queries. Missing provider means all providers. Shared projects merge by
 exact reported working directory, preserving Claude project IDs for existing links.
 
 Codex roots use `--codex-dir`, `CCA_CODEX_DIR`, or `CODEX_HOME`; archived rollouts are included.
@@ -174,3 +174,12 @@ the selected-project constraint when loading its navigation choices.
 The session ledger selects the richest column set fitting its measured container, including the
 project rail's space. Keep the Cost column visible at every supported width. Codex rows display
 readable model labels; full model IDs remain available in tooltips.
+
+
+## Copilot sources
+
+`core/copilot/` reads CLI/app event streams and VS Code saved snapshots/journals. See
+`docs/dev/copilot.md` for precise coverage, telemetry limitations and source-selection flags.
+`server/copilot-paths.ts` resolves the local platform's editor storage paths. `CCA_COPILOT_DIR`,
+`--copilot-dir` and `COPILOT_HOME` select Copilot roots; `CCA_E2E_COPILOT_DIR` enables synthetic
+browser coverage. Preserve missing-usage state and never interpret Copilot credits as dollars.

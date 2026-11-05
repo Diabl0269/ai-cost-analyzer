@@ -1,3 +1,4 @@
+import { providerLabel } from '@/lib/provider';
 import { useMemo } from 'react';
 import type { HarnessAnalyticsRow, HookAnalyticsRow } from '@core/types';
 import { plural } from '@core/pricing/format';
@@ -203,8 +204,8 @@ export default function HooksAnalyticsPage() {
     ];
   }, [totals, currency, hookRows, harnessRows, overhead]);
 
-  if (range.provider === 'codex') {
-    return <div className="stack"><PageHeader title="Hooks & harness" /><EmptyState title="Hook attribution unavailable for Codex" description="Codex rollouts do not record Claude Code hook or harness attribution. Missing records do not mean zero overhead." /></div>;
+  if ((range.provider === 'codex' || range.provider === 'copilot')) {
+    return <div className="stack"><PageHeader title="Hooks & harness" /><EmptyState title={`Hook attribution unavailable for ${providerLabel(range.provider)}`} description="These transcripts do not record Claude Code hook or harness attribution. Missing records do not mean zero overhead." /></div>;
   }
 
   return (

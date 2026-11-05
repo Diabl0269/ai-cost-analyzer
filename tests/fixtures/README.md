@@ -236,3 +236,9 @@ including 400 cached, 100 output including 20 reasoning. The repeated usage even
 At GPT-5.3-Codex standard API prices ($1.75 input, $0.175 cached, $14 output per million),
 expected cost is `(600*1.75 + 400*0.175 + 100*14)/1e6 = $0.00252`.
 This root is opt-in via `CCA_E2E_CODEX_DIR`, keeping the shared Claude fixture totals unchanged.
+
+
+Copilot fixtures: `copilot/session-state/synthetic-cli/events.jsonl` contains inclusive input
+100 (60 uncached, 30 read, 10 write) and output 20; multiplier 10 is not USD. The VS Code
+`copilot-vscode/snapshot.json` contains visible chat and context counters, not billing telemetry,
+so no request usage is invented. All content and paths are synthetic.

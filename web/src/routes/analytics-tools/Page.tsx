@@ -199,6 +199,15 @@ export default function ToolsAnalyticsPage() {
     return list;
   }, [currency, grouping]);
 
+  if (range.provider === 'copilot') {
+    return <div className={`stack stack-lg ${styles.page}`}>
+      <PageHeader title="Tools" lead="Recorded Copilot tool activity. Per-tool costs are unavailable from saved session totals." />
+      {tools.isError ? <QueryError error={tools.error} what="the tool analytics" onRetry={() => void tools.refetch()} /> : null}
+      {tools.isPending ? <Skeleton height={280} label="Loading tool activity" /> : null}
+      {tools.data ? <LedgerTable columns={columns.filter(column => ['name', 'calls', 'errors', 'sessions', 'avgResult'].includes(column.id))} rows={rows} rowKey={row => row.name} caption="Recorded Copilot tool activity" defaultSort={{ columnId: 'calls', direction: 'desc' }} empty="No tool activity recorded." /> : null}
+    </div>;
+  }
+
   return (
     <div className={`stack stack-lg ${styles.page}`}>
       <PageHeader

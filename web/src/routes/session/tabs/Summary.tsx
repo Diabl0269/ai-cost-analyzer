@@ -145,7 +145,7 @@ export default function SummaryTab() {
     });
     rows.push({
       id: 'exact',
-      label: summary.provider === 'codex' ? 'Session total (API-price estimate)' : 'Exact session total',
+      label: (summary.provider === 'codex' || summary.provider === 'copilot') ? 'Session total (API-price estimate)' : 'Exact session total',
       value: <Money usd={summary.cost.total} />,
       emphasis: 'total',
     });
@@ -164,14 +164,14 @@ export default function SummaryTab() {
       <section className={styles.receipts}>
         <div className="panel panel-pad">
           <Receipt
-            caption={summary.provider === 'codex' ? 'Receipt — API-price estimate' : 'Receipt — exact'}
+            caption={(summary.provider === 'codex' || summary.provider === 'copilot') ? 'Receipt — API-price estimate' : 'Receipt — exact'}
             rows={[
               ...toReceiptRows(exactAmounts(summary.cost), (amount) => <Money usd={amount} />),
               { id: 'total', label: 'Session total', value: <Money usd={summary.cost.total} display />, emphasis: 'total' },
             ]}
             footer={
               <span className={styles.footNote}>
-                {summary.provider === 'codex' ? 'Recorded token counts priced at API list rates. This is not your subscription bill.' : 'Every line comes from the API usage numbers in the transcript — no estimation.'}
+                {(summary.provider === 'codex' || summary.provider === 'copilot') ? 'Recorded token counts priced at API list rates. This is not your subscription bill.' : 'Every line comes from the API usage numbers in the transcript — no estimation.'}
               </span>
             }
           />
@@ -188,7 +188,7 @@ export default function SummaryTab() {
               { id: 'total', label: 'Session total', value: <Money usd={summary.cost.total} />, emphasis: 'total' },
             ]}
           />
-          {summary.provider === 'codex' ? <p className={styles.tallyNote}>Codex does not report a Claude Code cost-state tally. API list-price estimates cannot be reconciled with a subscription bill.</p> : reported ? (
+          {(summary.provider === 'codex' || summary.provider === 'copilot') ? <p className={styles.tallyNote}>This provider does not report a Claude Code cost-state tally. API list-price estimates cannot be reconciled with a subscription bill.</p> : reported ? (
             <div className={styles.tally}>
               <Receipt
                 dense
@@ -237,7 +237,7 @@ export default function SummaryTab() {
       </section>
 
       {/* Exploratory, not part of the receipt: on paper it costs a page and cannot be clicked. */}
-      <section className="stack stack-sm" data-print-hide>
+      {!detail.requests.some(request => request.usageGranularity === 'session') ? <section className="stack stack-sm" data-print-hide>
         <div className="section-head">
           <h2>Every request</h2>
           <span className={styles.note}>
@@ -312,9 +312,10 @@ export default function SummaryTab() {
             </div>
           </div>
         ) : null}
-      </section>
+      </section> : null}
 
       <section className={styles.split}>
+        {summary.provider !== 'copilot' ? (
         <div className="stack stack-sm">
           <div className="section-head">
             <h2>
@@ -334,6 +335,7 @@ export default function SummaryTab() {
             />
           </div>
         </div>
+        ) : null}
 
         <div className="stack stack-sm">
           <div className="section-head">

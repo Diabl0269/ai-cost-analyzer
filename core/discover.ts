@@ -8,6 +8,8 @@
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { VscodeCopilotScan, isVscodeCopilotRoot } from './copilot/vscode.js';
+import { CopilotScan, isCopilotRoot } from './copilot/discover.js';
 import { CodexScan, isCodexRoot } from './codex/discover.js';
 import { readJsonlLines } from './jsonl.js';
 import type {
@@ -52,6 +54,8 @@ export async function discoverSessions(roots: string[]): Promise<DiscoveredSessi
 export async function discoverSessionsWithWarnings(roots: string[]): Promise<DiscoveryResult> {
   const ctx = new Scan();
   const codex = new CodexScan();
+  const copilot = new CopilotScan();
+  const vscode = new VscodeCopilotScan();
   const seenRoots = new Set<string>();
   for (const root of roots) {
     const resolved = path.resolve(expandHome(root));
@@ -59,11 +63,17 @@ export async function discoverSessionsWithWarnings(roots: string[]): Promise<Dis
     try { canonical = await realpath(resolved); } catch { /* scan reports unreadable roots */ }
     if (seenRoots.has(canonical)) continue;
     seenRoots.add(canonical);
-    if (await isCodexRoot(resolved)) await codex.scan(resolved);
-    else await ctx.scanRoot(resolved);
+    const editorRoot = await isVscodeCopilotRoot(resolved);
+    const copilotRoot = await isCopilotRoot(resolved);
+    if (editorRoot) await vscode.scan(resolved);
+    if (copilotRoot) await copilot.scan(resolved);
+    if (!editorRoot && !copilotRoot) {
+      if (await isCodexRoot(resolved)) await codex.scan(resolved);
+      else await ctx.scanRoot(resolved);
+    }
   }
-  ctx.sessions.push(...codex.finish());
-  ctx.warnings.push(...codex.warnings);
+  ctx.sessions.push(...codex.finish(), ...copilot.finish(), ...vscode.finish());
+  ctx.warnings.push(...codex.warnings, ...copilot.warnings, ...vscode.warnings);
   // Code-point ordering, not `localeCompare`: discovery order must not depend on the host locale.
   ctx.sessions.sort((a, b) =>
     a.projectDirName === b.projectDirName

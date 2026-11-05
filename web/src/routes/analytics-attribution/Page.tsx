@@ -1,3 +1,4 @@
+import { providerLabel } from '@/lib/provider';
 import { useMemo } from 'react';
 import type { AttributionAnalyticsResponse } from '@core/types';
 import { plural } from '@core/pricing/format';
@@ -145,8 +146,8 @@ export default function AttributionAnalyticsPage() {
     [],
   );
 
-  if (range.provider === 'codex') {
-    return <div className="stack"><PageHeader title="Attribution" /><EmptyState title="Attribution unavailable for Codex" description="Codex rollouts do not record Claude Code skills, workflows or harness attribution." /></div>;
+  if ((range.provider === 'codex' || range.provider === 'copilot')) {
+    return <div className="stack"><PageHeader title="Attribution" /><EmptyState title={`Attribution unavailable for ${providerLabel(range.provider)}`} description="These transcripts do not record Claude Code skills, workflows or harness attribution." /></div>;
   }
 
   return (

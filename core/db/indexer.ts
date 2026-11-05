@@ -16,7 +16,7 @@ import { SessionWriter, fileSignature } from './write-session.js';
 import { str, num, type Row } from './rows.js';
 
 /** Bump when derived parser facts change even if transcript bytes and DB columns do not. */
-export const PARSER_VERSION = '3';
+export const PARSER_VERSION = '4';
 export const META_PARSER_VERSION = 'parser_version';
 
 export interface IndexerRunOptions extends IndexerOptions {

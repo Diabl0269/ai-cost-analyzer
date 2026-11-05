@@ -7,6 +7,7 @@
  * Every text cell therefore goes through {@link neutralizeFormula} before it is quoted: a leading
  * apostrophe, which spreadsheets strip on display and CSV parsers treat as ordinary text.
  */
+import { hasNoRecordedUsage } from '../cost/usage-coverage.js';
 import type { SessionSummary } from '../types.js';
 
 const HEADER = [
@@ -74,7 +75,7 @@ function money(value: number): string {
 export function sessionsToCsv(sessions: readonly SessionSummary[]): string {
   const lines = [HEADER.join(',')];
   for (const s of sessions) {
-    const unavailable = s.usageIncomplete === true && s.requestCount === 0;
+    const unavailable = hasNoRecordedUsage(s);
     const whollyUnpriced = s.unpriced && s.cost.total === 0;
     const costStatus = unavailable ? 'unavailable' : whollyUnpriced ? 'unpriced'
       : s.usageIncomplete || s.unpriced ? 'partial' : 'recorded';

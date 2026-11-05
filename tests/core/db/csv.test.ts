@@ -175,3 +175,12 @@ describe('export cost quality', () => {
     expect(cell(5, 'costMainUsd')).toBe('0.250000');
   });
 });
+
+
+it('exports a partial Copilot aggregate subtotal even with no individually recorded calls', () => {
+  const csv = sessionsToCsv([summary({ provider: 'copilot', usageIncomplete: true, requestCount: 0,
+    tokens: { ...emptyTokenTotals(), input: 100 }, cost: { ...emptyBreakdown(), input: 0.25, total: 0.25 } })]);
+  const [header, data] = csv.trim().split('\r\n').map(line => line.split(','));
+  expect(data![header!.indexOf('costStatus')]).toBe('partial');
+  expect(data).toContain('0.250000');
+});

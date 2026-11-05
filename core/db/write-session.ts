@@ -234,11 +234,12 @@ export class SessionWriter {
     const models = new Set<string>();
     for (const slot of slots) {
       const meta = slot.transcript.meta;
+      for (const model of meta.recordedModels ?? []) models.add(model);
       if (meta.firstTs && (!startedAt || meta.firstTs < startedAt)) startedAt = meta.firstTs;
       if (meta.lastTs && (!endedAt || meta.lastTs > endedAt)) endedAt = meta.lastTs;
       for (const req of slot.transcript.requests) {
         if (req.isSynthetic) continue;
-        requestCount += 1;
+        if (!req.messageId.startsWith('copilot-aggregate-')) requestCount += 1;
         models.add(req.model);
       }
       toolCallCount += slot.transcript.toolCalls.length;

@@ -1,0 +1,4 @@
+{"id":"start","type":"session.start","timestamp":"2026-01-01T00:00:00.000Z","data":{"sessionId":"synthetic-cli","context":{"cwd":"/workspace/example","branch":"main"},"producer":"copilot","copilotVersion":"1.0","selectedModel":"gpt-5"}}
+{"id":"user","type":"user.message","timestamp":"2026-01-01T00:00:01.000Z","data":{"content":"Explain this synthetic example"}}
+{"id":"assistant","type":"assistant.message","timestamp":"2026-01-01T00:00:02.000Z","data":{"messageId":"message-one","content":"This is a synthetic fixture."}}
+{"id":"shutdown","type":"session.shutdown","timestamp":"2026-01-01T00:00:03.000Z","data":{"modelMetrics":{"gpt-5":{"requests":{"count":2,"cost":10},"usage":{"inputTokens":100,"cacheReadTokens":30,"cacheWriteTokens":10,"outputTokens":20}}}}}

@@ -1,0 +1,41 @@
+import { expect, test } from '@playwright/test';
+import { login, openRoute, waitForIndexed, expectNoAxeViolations } from './helpers.js';
+const RANGE = 'from=2000-01-01&to=2100-01-01';
+test.describe('Copilot local histories', () => {
+  test.skip(!process.env.CCA_E2E_COPILOT_DIR, 'requires synthetic Copilot root');
+  test.beforeEach(async ({ request }) => { await login(request); await waitForIndexed(request); });
+  test('filters, searches, exports and renders CLI/app session history with accounting limits', async ({ page, request }) => {
+    await openRoute(page, `/sessions?${RANGE}`);
+    await page.getByRole('combobox', { name: 'Provider', exact: true }).selectOption('copilot');
+    await expect(page).toHaveURL(/provider=copilot/);
+    await expect(page.getByRole('link', { name: 'Explain this synthetic example', exact: true })).toBeVisible();
+    const csv = page.getByRole('link', { name: /CSV/ });
+    await expect(csv).toHaveAttribute('href', /provider=copilot/);
+    const exported = await request.get((await csv.getAttribute('href'))!);
+    expect(await exported.text()).toContain('copilot-synthetic-cli');
+    expect(await exported.text()).not.toContain('codex-d1111111');
+    await page.getByRole('link', { name: 'Explain this synthetic example', exact: true }).click();
+    await expect(page.getByText(/Copilot amounts are API-price estimates/)).toBeVisible();
+    await expect(page.getByText(/Usage rows may be accounting buckets/)).toBeVisible();
+    await expect(page.getByText('Every request', { exact: true })).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Timeline', exact: true }).click();
+    await expect(page.getByText('Cost timeline unavailable', { exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'Transcript', exact: true }).click();
+    await expect(page).toHaveURL(/provider=copilot/);
+    await expect(page.getByText('This is a synthetic fixture.', { exact: true })).toBeVisible();
+    await expectNoAxeViolations(page, 'copilot');
+  });
+  test('keeps VS Code history readable while billing usage is unavailable, including phone navigation', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openRoute(page, `/sessions?${RANGE}&provider=copilot`);
+    await page.getByRole('link', { name: 'Synthetic IDE chat', exact: true }).click();
+    await expect(page.getByText('Token usage unavailable', { exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'Transcript', exact: true }).click();
+    await expect(page.getByText('Explain this synthetic project', { exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: /^Tools/ }).click();
+    await expect(page.getByText(/Tool costs unavailable: saved Copilot history/)).toBeVisible();
+    await page.getByRole('tab', { name: /^Hooks/ }).click();
+    await expect(page.getByText('Attribution unavailable for Copilot', { exact: true })).toBeVisible();
+    await expectNoAxeViolations(page, 'copilot');
+  });
+});

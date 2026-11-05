@@ -5,6 +5,8 @@
  * Assistant messages are split across several JSONL lines that share `message.id` (SPEC §3.3), so
  * their blocks are merged back into the first line of the message.
  */
+import { readVscodeCopilotLines } from '../copilot/vscode.js';
+import { normalizeCopilotLine } from '../copilot/normalize.js';
 import { normalizeCodexLine } from '../codex/normalize.js';
 import type { DatabaseSync } from 'node:sqlite';
 import type {
@@ -92,6 +94,8 @@ function contentBlocks(content: unknown): TranscriptBlock[] {
 /** Builds the display blocks for one raw JSONL line. */
 export function blocksForLine(line: Record<string, unknown> | null): TranscriptBlock[] {
   if (!line) return [{ type: 'other', label: 'unavailable' }];
+  const copilot = normalizeCopilotLine(line);
+  if (copilot) return blocksForLine(copilot);
   if (line['type'] === 'response_item' || line['type'] === 'event_msg' || line['type'] === 'compacted') {
     const normalized = normalizeCodexLine(line);
     if (normalized) return blocksForLine(normalized);
@@ -169,12 +173,13 @@ export async function getTranscriptPage(
     byteOffset: num(row, 'byteOffset'),
     byteLength: num(row, 'byteLength'),
   }));
-  const lines = await readLinesAt(source.filePath, ranges);
+  const vscodeLines = sessionId.startsWith('copilot-vscode-') ? await readVscodeCopilotLines(source.filePath).catch(() => []) : undefined;
+  const lines = vscodeLines ? [] : await readLinesAt(source.filePath, ranges);
 
   const messages: TranscriptMessage[] = [];
   const byMessageId = new Map<string, TranscriptMessage>();
   page.forEach((row, i) => {
-    const blocks = blocksForLine(parseLine(lines[i] ?? null));
+    const blocks = blocksForLine(vscodeLines ? vscodeLines[num(row, 'seq')] ?? null : parseLine(lines[i] ?? null));
     const messageId = optStr(row, 'messageId');
     if (messageId) {
       const existing = byMessageId.get(messageId);

@@ -77,8 +77,8 @@ export function TopBar({
       </div>
       <div className={styles.right}>
         <Select className={styles.provider} label="Provider" hideLabel value={range.provider ?? ''}
-          onChange={(value) => range.setProvider(value === 'claude' || value === 'codex' ? value : undefined)}
-          options={[{ value: '', label: 'All providers' }, { value: 'claude', label: 'Claude' }, { value: 'codex', label: 'Codex' }]} />
+          onChange={(value) => range.setProvider(value === 'claude' || value === 'codex' || value === 'copilot' ? value : undefined)}
+          options={[{ value: '', label: 'All providers' }, { value: 'claude', label: 'Claude' }, { value: 'codex', label: 'Codex' }, { value: 'copilot', label: 'Copilot' }]} />
         {/* Below 720px this moves into the rail: see `LeftRail`'s range slot. */}
         {noRange || firstRun ? null : (
           <div className={styles.range}>

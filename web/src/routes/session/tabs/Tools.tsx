@@ -17,7 +17,7 @@ import styles from './Tools.module.css';
 
 export default function ToolsTab() {
   const { id, detail } = useSessionContext();
-  const noUsage = hasNoRecordedUsage(detail.summary);
+  const noUsage = hasNoRecordedUsage(detail.summary) || detail.summary.provider === 'copilot';
   const navigate = useNavigate();
   const [filter, setFilter] = useState('');
 
@@ -196,7 +196,7 @@ export default function ToolsTab() {
         ]}
       />
       <p className={styles.legend}>
-        Generate, ingest and carry are estimated <EstimateBadge method="delta" />; child costs are exact.
+        {detail.summary.provider === 'copilot' ? 'Tool costs unavailable: saved Copilot history does not establish per-tool billing.' : <>Generate, ingest and carry are estimated <EstimateBadge method="delta" />; child costs are exact.</>}
         Press Enter on a row to open it in the transcript.
       </p>
     </div>
