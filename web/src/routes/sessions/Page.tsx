@@ -234,7 +234,16 @@ export default function SessionsPage() {
       sortValue: (session) => session.cost.total,
       cell: (session) => (
         <span className={styles.costCell}>
-          <Money usd={session.cost.total} className={styles.cost} />
+          {session.usageIncomplete && session.requestCount === 0 ? (
+            <Tooltip content="This rollout contains assistant messages but no recorded token usage. Its cost is unavailable.">
+              <span className="muted">Unavailable</span>
+            </Tooltip>
+          ) : <Money usd={session.cost.total} className={styles.cost} />}
+          {session.usageIncomplete && session.requestCount > 0 ? (
+            <Tooltip content="Some token usage is missing. This total covers recorded tokens only.">
+              <span className={styles.unpriced} aria-label="Incomplete usage"><Icon name="warning" size={12} /></span>
+            </Tooltip>
+          ) : null}
           {session.unpriced ? (
             <Tooltip content="This session used a model with no price in the pricing table, so its total is a floor. Add a price in Settings.">
               <span className={styles.unpriced} aria-label="Unpriced model">

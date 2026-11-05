@@ -39,6 +39,9 @@ it('indexes both providers into a shared folder and scopes every aggregate, sear
     expect(new Set(folder.sessions.map(s => s.provider))).toEqual(new Set(['claude', 'codex']));
     const overview = await store.overview({ ...range, provider: 'codex' }, ctx);
     expect(overview.totals.sessions).toBe(1);
+    const unknownContext = { ...ctx, pricing: { ...pricing, models: pricing.models.filter(m => m.key !== 'gpt-5.3-codex') } };
+    expect((await store.overview({ ...range, provider: 'claude' }, unknownContext)).unpricedModels).toEqual([]);
+    expect((await store.overview({ ...range, provider: 'codex' }, unknownContext)).unpricedModels).toEqual(['gpt-5.3-codex']);
     expect(overview.totals.cost.total).toBeCloseTo(session.cost.total, 10);
     const models = await store.modelsAnalytics({ ...range, provider: 'codex' }, ctx);
     expect(models.models.map(m => m.model)).toEqual(['gpt-5.3-codex']);

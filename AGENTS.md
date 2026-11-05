@@ -20,3 +20,7 @@ A few local-tooling notes not worth putting in the public docs:
 - Long-context tariffs are resolved from per-request context, not summed usage; grouped SQL keeps
   `pricingContextTokens` separate from totals. Keep this distinction in every new aggregate.
 - The privacy scan skips `.git` files as well as directories so managed worktrees are supported.
+
+- Indexing failures remain visible through `/api/status.indexError` and incremental updates; clear
+  them only after a successful full rebuild/rescan, never just because a later file indexed.
+- Assistant transcripts missing token telemetry show unavailable costs, rather than exact zero.

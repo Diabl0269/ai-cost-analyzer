@@ -219,3 +219,7 @@ each request's context size before pricing, so many short requests never trigger
 premium. Unsupported tariffs/models remain unpriced; hidden service charges and inherited fork
 history are not inferred from rollout content. For those cases the recorded-token view is not a
 complete billing ledger.
+
+A rollout may preserve assistant/tool text without recording token usage. Such a session is
+readable and searchable but does not establish a zero-dollar bill: its cost is unavailable.
+Historical activity can also lie outside the default 30-day view; select All to inspect it.

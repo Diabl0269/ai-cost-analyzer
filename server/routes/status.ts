@@ -15,6 +15,7 @@ export function statusRoutes(deps: AppDeps): Hono {
     const response: StatusResponse = {
       version: deps.version,
       indexing: idx.indexing,
+      ...(idx.error ? { indexError: idx.error } : {}),
       progress: idx.progress,
       lastIndexedAt: status.lastIndexedAt,
       roots: deps.roots,

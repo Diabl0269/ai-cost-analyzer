@@ -495,6 +495,8 @@ export interface RangeQuery {
 }
 
 export interface StatusResponse {
+  /** Retained failure: totals may be incomplete until a full rebuild or rescan succeeds. */
+  indexError?: string;
   version: string;
   indexing: boolean;
   progress?: IndexProgress;
@@ -527,7 +529,7 @@ export interface IndexProgress {
 export type IndexEvent =
   | { type: 'progress'; progress: IndexProgress }
   | { type: 'sessionsChanged'; sessionIds: string[] }
-  | { type: 'indexed'; at: string }
+  | { type: 'indexed'; at: string; indexError?: string }
   | { type: 'error'; message: string }
   | { type: 'ping' };
 

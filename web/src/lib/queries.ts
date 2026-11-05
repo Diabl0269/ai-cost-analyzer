@@ -276,8 +276,10 @@ export function useIndexEventStream(onEvent?: (event: IndexEvent) => void): Inde
           void client.invalidateQueries({ queryKey: ['projects'] });
           void client.invalidateQueries({ queryKey: ['analytics'] });
           break;
-        case 'progress':
         case 'error':
+          void client.invalidateQueries({ queryKey: queryKeys.status() });
+          break;
+        case 'progress':
         case 'ping':
           break;
       }

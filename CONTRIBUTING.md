@@ -145,3 +145,12 @@ executables use the same CLI. For mixed-source browser checks, set `CCA_E2E_CODE
 The web navigation wrappers in `web/src/lib/navigation.tsx` preserve provider selection;
 `web/src/lib/provider.ts` owns parsing and URL propagation. Use these wrappers for internal
 links and navigation. `useDateRange` carries provider with date/project state to API queries.
+
+## Index completeness
+
+An indexing exception may leave completed sessions in the cache. The error is retained in the
+index manager, exposed as `/api/status.indexError`, and displayed as **Index incomplete** until
+a successful full rebuild or rescan. A successful incremental update cannot certify the whole
+index. Validate discovery versus indexed counts against real source roots before claiming a
+preview contains the user's history; a successful HTTP response proves only that the server runs.
+Codex sessions with assistant messages and no token telemetry display an unavailable cost.

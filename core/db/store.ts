@@ -646,7 +646,7 @@ class SqliteStore implements Store {
       plan: planComparison(daily, ctx.settings),
       budget: budgetStatus(monthlyDaily, ctx.settings, nowOf(ctx)),
       insights: computeInsights(insightsInput, ctx).slice(0, 5),
-      unpricedModels: (await this.status(ctx)).unpricedModels,
+      unpricedModels: byModel.filter(row => row.unpriced).map(row => row.model),
     };
   }
 
