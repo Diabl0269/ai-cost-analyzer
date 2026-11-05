@@ -80,7 +80,7 @@ export function SessionHeader({ detail, whatIf }: SessionHeaderProps) {
               <Icon name="sessions" size={12} /> {shortProjectPath(summary.projectPath, 3)}
             </Link>
             <span className={styles.id} title={summary.id}>
-              {summary.id.slice(0, 8)}
+              {summary.provider === 'codex' ? summary.id.slice(-8) : summary.id.slice(0, 8)}
             </span>
           </p>
         </div>
@@ -102,7 +102,7 @@ export function SessionHeader({ detail, whatIf }: SessionHeaderProps) {
         </div>
       </div>
 
-      {summary.provider === 'codex' ? <p className="ui-sm muted">Codex amounts are API-price estimates, not your subscription bill. Hook, skill, workflow and agent attribution is unavailable in Codex rollouts.</p> : null}
+      {summary.provider === 'codex' ? <p className="ui-sm muted">Codex amounts are API-price estimates, not your subscription bill. Claude Code hook, skill and workflow attribution is unavailable in Codex rollouts.</p> : null}
       {summary.usageIncomplete ? <p className="ui-sm muted" role="note">Usage incomplete — totals cover recorded tokens only.</p> : null}
       <dl className={styles.facts}>
         <div className={styles.fact}>
@@ -116,11 +116,11 @@ export function SessionHeader({ detail, whatIf }: SessionHeaderProps) {
           <dt>Elapsed</dt>
           <dd>
             <Duration ms={summary.durationMs} />
-            <Tooltip content="Active time counts only the stretches with activity: idle gaps between turns are excluded.">
+            {summary.activeMs > 0 ? <Tooltip content="Active time counts only the stretches with activity: idle gaps between turns are excluded.">
               <span className={styles.active}>
                 active <Duration ms={summary.activeMs} />
               </span>
-            </Tooltip>
+            </Tooltip> : null}
           </dd>
         </div>
         {facts.map((fact) => (

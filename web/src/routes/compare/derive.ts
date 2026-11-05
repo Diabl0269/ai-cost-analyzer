@@ -1,3 +1,4 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
 import type { SessionDetail } from '@core/types';
 import type { CompareRow } from './components';
 
@@ -46,12 +47,18 @@ export function row(
   b: SessionDetail | null,
   options: { note?: string; emphasis?: CompareRow['emphasis'] } = {},
 ): CompareRow {
+  const value = (detail: SessionDetail | null): number | null => {
+    if (!detail) return null;
+    if (hasNoRecordedUsage(detail.summary) && ['money', 'tokens', 'percent'].includes(kind)) return null;
+    if (detail.summary.provider === 'codex' && ['workflows', 'hooks', 'harness', 'hookTime'].includes(id)) return null;
+    return pick(detail);
+  };
   return {
     id,
     label,
     kind,
-    a: a && !(a.summary.provider === 'codex' && ['agents', 'workflows', 'hooks', 'harness', 'hookTime'].includes(id)) ? pick(a) : null,
-    b: b && !(b.summary.provider === 'codex' && ['agents', 'workflows', 'hooks', 'harness', 'hookTime'].includes(id)) ? pick(b) : null,
+    a: value(a),
+    b: value(b),
     ...(options.note === undefined ? {} : { note: options.note }),
     ...(options.emphasis === undefined ? {} : { emphasis: options.emphasis }),
   };

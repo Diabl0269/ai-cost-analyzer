@@ -82,7 +82,7 @@ function RailProjects() {
   const range = useDateRange();
   const [params] = useSearchParams();
   const selected = params.get('project');
-  const projects = useProjects(range.query);
+  const projects = useProjects({ ...range.query, project: undefined });
 
   const nodes = useMemo(() => (projects.data?.projects ?? []).map(toTreeNode), [projects.data]);
 
@@ -95,7 +95,7 @@ function RailProjects() {
   }
 
   if (projects.isError || nodes.length === 0) {
-    return <p className={styles.treeEmpty}>{projects.isError ? 'Projects unavailable' : 'No projects indexed yet'}</p>;
+    return <p className={styles.treeEmpty}>{projects.isError ? 'Projects unavailable' : 'No projects in this range'}</p>;
   }
 
   return (

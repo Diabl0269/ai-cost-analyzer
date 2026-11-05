@@ -7,13 +7,16 @@ import { cleanPrompt, resolveTitle as resolveTitleFrom, type ResolvedTitle } fro
 
 export function resolveSessionTitle(session: ParsedSession): ResolvedTitle {
   const facts = session.main.facts;
+  const firstPrompt = session.discovered.provider === 'codex'
+    ? session.main.messages.find((message) => message.kind === 'prompt')?.searchText ?? facts?.firstPrompt
+    : facts?.firstPrompt;
   return resolveTitleFrom({
     ...(facts?.customTitle ? { customTitle: facts.customTitle } : {}),
     ...(session.customTitleFromFile ? { customTitleFromFile: session.customTitleFromFile } : {}),
     ...(facts?.aiTitle ? { aiTitle: facts.aiTitle } : {}),
     ...(facts?.agentName ? { agentName: facts.agentName } : {}),
     ...(session.discovered.indexEntry?.summary ? { indexSummary: session.discovered.indexEntry.summary } : {}),
-    ...(facts?.firstPrompt ? { firstPrompt: facts.firstPrompt } : {}),
+    ...(firstPrompt ? { firstPrompt } : {}),
     ...(session.main.meta.slug ? { slug: session.main.meta.slug } : {}),
     sessionId: session.discovered.sessionId,
   });

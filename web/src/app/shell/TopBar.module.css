@@ -84,3 +84,10 @@
     display: none;
   }
 }
+
+.provider { flex: 0 1 auto; max-width: 138px; }
+
+@media (max-width: 420px) {
+  .right { gap: var(--s1); }
+  .provider { max-width: 112px; }
+}

@@ -1,3 +1,4 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import type { SessionDetail } from '@core/types';
@@ -99,7 +100,7 @@ export default function ComparePage() {
       for (const model of detail?.byModel ?? []) labels.set(model.model, model.label);
     }
     const find = (detail: SessionDetail | null, model: string): number | null =>
-      detail ? (detail.byModel.find((entry) => entry.model === model)?.cost.total ?? 0) : null;
+      detail && !hasNoRecordedUsage(detail.summary) ? (detail.byModel.find((entry) => entry.model === model)?.cost.total ?? 0) : null;
     return [...labels.entries()]
       .map<CompareRow>(([model, label]) => ({ id: model, label, kind: 'money', a: find(a, model), b: find(b, model) }))
       .sort((first, second) => Math.max(second.a ?? 0, second.b ?? 0) - Math.max(first.a ?? 0, first.b ?? 0));
@@ -118,8 +119,8 @@ export default function ComparePage() {
           id: name,
           label: name,
           kind: 'money',
-          a: a ? (inA?.cost ?? 0) : null,
-          b: b ? (inB?.cost ?? 0) : null,
+          a: a && !hasNoRecordedUsage(a.summary) ? (inA?.cost ?? 0) : null,
+          b: b && !hasNoRecordedUsage(b.summary) ? (inB?.cost ?? 0) : null,
           note: `${inA?.calls ?? 0} / ${inB?.calls ?? 0} calls`,
         };
       })
@@ -182,6 +183,7 @@ export default function ComparePage() {
         />
       ) : null}
 
+      {a?.summary.usageIncomplete || b?.summary.usageIncomplete ? <p className="ui-sm muted" role="note">Usage is incomplete. Totals cover recorded tokens only; a dash means token usage or attribution is unavailable, not zero cost.</p> : null}
       {both ? (
         <>
           <p className={styles.legend}>
@@ -193,23 +195,23 @@ export default function ComparePage() {
             </span>
           </p>
 
-          <Section title="Headline" note="exact except where marked">
+          <Section title="Headline" note="recorded usage; Codex amounts are API-price estimates">
             <CompareTable rows={headline} caption="Headline metrics for both sessions" labelA="A" labelB="B" currency={currency} />
           </Section>
 
-          <Section title="By token class" note="exact">
-            <CompareTable rows={categories} caption="Exact cost by token class" labelA="A" labelB="B" currency={currency} />
+          <Section title="By token class" note="recorded usage priced at API list rates">
+            <CompareTable rows={categories} caption="API list-price cost by token class" labelA="A" labelB="B" currency={currency} />
           </Section>
 
           <Section title="Where the money went" note="estimated attribution of the same money">
             <CompareTable rows={estimated} caption="Estimated cost by what filled the context" labelA="A" labelB="B" currency={currency} />
           </Section>
 
-          <Section title="Main, agents and workflows" note="exact">
+          <Section title="Main, agents and workflows" note="recorded usage priced at API list rates">
             <CompareTable rows={delegation} caption="Cost of the main transcript versus delegated work" labelA="A" labelB="B" currency={currency} />
           </Section>
 
-          <Section title="By model" note="exact">
+          <Section title="By model" note="recorded usage priced at API list rates">
             <CompareTable rows={models} caption="Cost per model in both sessions" labelA="A" labelB="B" currency={currency} />
           </Section>
 

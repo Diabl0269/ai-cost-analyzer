@@ -1,3 +1,4 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
 import { useMemo, useState } from 'react';
 import { useNavigate } from '@/lib/navigation';
 import type { ToolCallCost } from '@core/types';
@@ -16,6 +17,7 @@ import styles from './Tools.module.css';
 
 export default function ToolsTab() {
   const { id, detail } = useSessionContext();
+  const noUsage = hasNoRecordedUsage(detail.summary);
   const navigate = useNavigate();
   const [filter, setFilter] = useState('');
 
@@ -100,7 +102,7 @@ export default function ToolsTab() {
       secondary: true,
       headerTitle: 'The share of the request’s output tokens spent writing this call',
       sortValue: (call) => call.genCost,
-      cell: (call) => <Money usd={call.genCost} />,
+      cell: (call) => <Money usd={noUsage ? null : call.genCost} />,
     },
     {
       id: 'ingest',
@@ -110,7 +112,7 @@ export default function ToolsTab() {
       secondary: true,
       headerTitle: 'What it cost to put the result into the context once',
       sortValue: (call) => call.result.ingestCost,
-      cell: (call) => <Money usd={call.result.ingestCost} />,
+      cell: (call) => <Money usd={noUsage ? null : call.result.ingestCost} />,
     },
     {
       id: 'carry',
@@ -121,7 +123,7 @@ export default function ToolsTab() {
       sortValue: (call) => call.result.carryCost,
       cell: (call) => (
         <span title={`re-sent on ${plural(call.result.carryRequests, 'later request')}`}>
-          <Money usd={call.result.carryCost} />
+          <Money usd={noUsage ? null : call.result.carryCost} />
         </span>
       ),
     },
@@ -133,7 +135,7 @@ export default function ToolsTab() {
       sortValue: (call) => call.ownCost,
       cell: (call) => (
         <span className={styles.ownCell}>
-          <Money usd={call.ownCost} className={styles.strong} />
+          <Money usd={noUsage ? null : call.ownCost} className={styles.strong} />
           <EstimateBadge method={call.result.estMethod} />
         </span>
       ),
@@ -145,7 +147,7 @@ export default function ToolsTab() {
       width: '86px',
       headerTitle: 'Exact cost of the subagent or workflow this call started — never folded into the session’s own total',
       sortValue: (call) => call.childCost ?? 0,
-      cell: (call) => (call.childCost === null ? <span className={styles.muted}>{EM_DASH}</span> : <Money usd={call.childCost} />),
+      cell: (call) => (call.childCost === null ? <span className={styles.muted}>{EM_DASH}</span> : <Money usd={noUsage ? null : call.childCost} />),
     },
   ];
 
@@ -189,8 +191,8 @@ export default function ToolsTab() {
           null,
           null,
           null,
-          <Money key="own" usd={totals.own} className={styles.strong} />,
-          <Money key="child" usd={totals.child} />,
+          <Money key="own" usd={noUsage ? null : totals.own} className={styles.strong} />,
+          <Money key="child" usd={noUsage ? null : totals.child} />,
         ]}
       />
       <p className={styles.legend}>

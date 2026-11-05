@@ -169,6 +169,12 @@ class IndexManagerImpl implements IndexManagerLike {
     this.progress = undefined;
     if (msg.type === 'done') {
       if (mode) this.opts.onRunComplete?.(mode, msg.result);
+      if (msg.result.sessionsFailed) {
+        this.error = `${msg.result.sessionsFailed} session(s) could not be parsed. The index is incomplete; retry indexing all roots.`;
+        this.opts.broadcast({ type: 'error', message: this.error });
+        this.maybeStartPending();
+        return;
+      }
       this.lastIndexedAt = new Date().toISOString();
       if (mode === 'full' || mode === 'rescan') this.error = undefined;
       this.opts.broadcast({ type: 'indexed', at: this.lastIndexedAt, ...(this.error ? { indexError: this.error } : {}) });

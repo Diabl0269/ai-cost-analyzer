@@ -154,3 +154,23 @@ a successful full rebuild or rescan. A successful incremental update cannot cert
 index. Validate discovery versus indexed counts against real source roots before claiming a
 preview contains the user's history; a successful HTTP response proves only that the server runs.
 Codex sessions with assistant messages and no token telemetry display an unavailable cost.
+
+## Parser cache version and Codex prompts
+
+`core/codex/prompts.ts` recognizes complete leading AGENTS instructions, environment/browser
+context, and other harness envelopes. These remain readable as harness lines in the transcript;
+titles, prompt counts, and prompt search use the first actual request. Quoted instructions inside
+ordinary requests are preserved. Context-only sessions use a distinct identifier fallback.
+
+When those derived facts change, increment `PARSER_VERSION` in `core/db/indexer.ts`. A successful
+root scan marks that version in the existing meta table; a mismatch reparses unchanged files,
+refreshing titles and full-text search automatically. A failed whole-session parse cannot mark
+the upgrade complete or report the index as up to date. No schema change is needed.
+
+Data-page navigation carries provider, dates and project. Settings/document links carry only
+provider; page-specific filters and cursors are not global. The project tree deliberately drops
+the selected-project constraint when loading its navigation choices.
+
+The session ledger selects the richest column set fitting its measured container, including the
+project rail's space. Keep the Cost column visible at every supported width. Codex rows display
+readable model labels; full model IDs remain available in tooltips.

@@ -1,3 +1,4 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
 import { providerLabel } from '@/lib/provider';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -283,7 +284,7 @@ export default function SearchPage() {
                   {providerLabel(group.session.provider)} · {shortProjectPath(group.session.projectPath)}
                 </span>
                 <RelativeTime value={group.session.startedAt} live={false} className={styles.groupMeta} />
-                <Money usd={group.session.cost.total} className={styles.groupCost} />
+                {hasNoRecordedUsage(group.session) ? <span className={styles.groupCost}>Cost unavailable</span> : <Money usd={group.session.cost.total} className={styles.groupCost} />}
               </header>
               {group.hits.length === 0 ? (
                 <p className={styles.noHits}>Matched on the title.</p>

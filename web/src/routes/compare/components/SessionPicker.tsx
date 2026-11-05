@@ -1,3 +1,4 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
 import { providerLabel } from '@/lib/provider';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { plural } from '@core/pricing/format.js';
@@ -78,7 +79,7 @@ export function SessionPicker({ label, selected, selectedId, onSelect, currency 
         <span className={styles.label}>{label}</span>
         <div className={styles.chosenHead}>
           <span className={styles.chosenTitle}>{providerLabel(selected.provider)} · {selected.title}</span>
-          <Money usd={selected.cost.total} currency={currency} />
+          {hasNoRecordedUsage(selected) ? <span>Cost unavailable</span> : <Money usd={selected.cost.total} currency={currency} />}
         </div>
         <span className={styles.chosenMeta}>
           {selected.projectPath} · {formatDate(selected.startedAt, 'datetime')}
@@ -144,7 +145,7 @@ export function SessionPicker({ label, selected, selectedId, onSelect, currency 
             >
               <span className="truncate">{truncate(session.title, 52)}</span>
               <span className={styles.optionMeta}>
-                {providerLabel(session.provider)} · {formatDate(session.startedAt, 'day')} · <Money usd={session.cost.total} currency={currency} />
+                {providerLabel(session.provider)} · {formatDate(session.startedAt, 'day')} · {hasNoRecordedUsage(session) ? <span>Cost unavailable</span> : <Money usd={session.cost.total} currency={currency} />}
               </span>
             </li>
           ))}

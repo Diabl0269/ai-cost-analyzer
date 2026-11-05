@@ -223,3 +223,17 @@ complete billing ledger.
 A rollout may preserve assistant/tool text without recording token usage. Such a session is
 readable and searchable but does not establish a zero-dollar bill: its cost is unavailable.
 Historical activity can also lie outside the default 30-day view; select All to inspect it.
+
+
+Session CSV exports append `costStatus`, `usageIncomplete`, and `unpriced`. `recorded` means
+all recorded usage has known prices; `partial` preserves known subtotals while flagging missing
+usage or unknown model prices. `unavailable` means missing telemetry established no billed
+request; `unpriced` means no known cost could be calculated for unknown models. Calculated USD
+cells are blank for `unavailable` and wholly `unpriced` rows, rather than implying free usage.
+A separately reported provider cost remains in `reportedCostUsd` when present.
+
+The overview also reports incomplete-session coverage in the selected provider, project and date
+scope. Sessions without token records are counted from their transcript activity rather than
+excluded for having no request rows. Their presence is shown explicitly, even when no cost can be
+computed for the range. Injected Codex instructions do not count as human prompts; this changes
+prompt-based ratios but does not change recorded token totals.

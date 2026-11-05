@@ -66,13 +66,13 @@ export function Toolbar({ list, models, csvHref }: ToolbarProps) {
         />
       </div>
 
-      <Select
+      {list.query.provider !== 'codex' ? <Select
         label="Entrypoint"
         hideLabel
         value={filters.entrypoint}
         onChange={(value) => set({ entrypoint: value })}
-        options={[{ value: '', label: 'Any entrypoint' }, ...ENTRYPOINTS.map((e) => ({ value: e.value, label: e.label }))]}
-      />
+        options={[{ value: '', label: 'Any Claude entrypoint' }, ...ENTRYPOINTS.map((e) => ({ value: e.value, label: e.label }))]}
+      /> : null}
 
       <Select
         label="Model"

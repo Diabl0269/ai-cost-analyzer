@@ -322,13 +322,18 @@ export function priceRequests(
   const out: RequestCost[] = [];
   for (const req of requests) {
     if (req.isSynthetic) continue;
-    const flags = { speed: req.speed, inferenceGeo: req.inferenceGeo, serviceTier: req.serviceTier, contextTokens: req.contextTokens };
-    const resolved = resolve(req.model, flags);
+    const flags = { speed: req.speed, inferenceGeo: req.inferenceGeo, serviceTier: req.serviceTier, contextTokens: req.contextTokens, cacheWriteTokens: req.usage.cache5m + req.usage.cache1h };
+    let resolved = resolve(req.model, flags);
     let cost: CostBreakdown;
     if (req.iterations && req.iterations.length > 1) {
       cost = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0, webSearch: 0, total: 0 };
       for (const it of req.iterations) {
-        const itCost = costOfUsage(it.usage, resolve(it.model || req.model, flags), pricing.webSearchPer1000);
+        const price = resolve(it.model || req.model, {
+          ...flags, contextTokens: contextTokensOf(it.usage),
+          cacheWriteTokens: it.usage.cache5m + it.usage.cache1h,
+        });
+        if (price.unpriced) resolved = { ...resolved, unpriced: true };
+        const itCost = costOfUsage(it.usage, price, pricing.webSearchPer1000);
         cost.input += itCost.input;
         cost.output += itCost.output;
         cost.cacheWrite += itCost.cacheWrite;

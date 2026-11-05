@@ -588,6 +588,16 @@ class SqliteStore implements Store {
     const { cost, tokens, requests } = totalsFromModelRows(byModel);
     const counts = rangeCounts(analytics);
     const daily = dailyPoints(analytics);
+    // Sessions without usage have no request rows, so the ordinary analytics scope omits them.
+    const coverageScope = sessionScope(q, ctx.settings);
+    const coverage = this.db.prepare(`SELECT
+        SUM(CASE WHEN s.requestCount = 0 THEN 1 ELSE 0 END) AS unavailable,
+        SUM(CASE WHEN s.requestCount > 0 THEN 1 ELSE 0 END) AS partial
+      FROM sessions s WHERE s.usageIncomplete = 1
+        AND s.id IN (SELECT s.id FROM sessions s${coverageScope.sql})
+        AND (s.startedDate BETWEEN ? AND ? OR EXISTS (
+          SELECT 1 FROM messages m WHERE m.sessionId = s.id AND m.dateLocal BETWEEN ? AND ?))`)
+      .get(...coverageScope.params, analytics.range.from, analytics.range.to, analytics.range.from, analytics.range.to) as Row;
 
     // Range-scoped on purpose: the table is captioned "in the selected range", and whole-session
     // costs there could sum to more than the range total (182 % on a one-day window).
@@ -627,6 +637,7 @@ class SqliteStore implements Store {
 
     return {
       range: analytics.range,
+      usageCoverage: { unavailableSessions: num(coverage, 'unavailable'), partialSessions: num(coverage, 'partial') },
       totals: {
         cost,
         tokens,

@@ -141,3 +141,37 @@ describe('spreadsheet formula injection', () => {
     expect(csv.trimEnd().split('\r\n')).toHaveLength(3);
   });
 });
+
+
+describe('export cost quality', () => {
+  it('distinguishes recorded zero, missing usage, unknown prices, and known partial subtotals', () => {
+    const partial = { ...emptyBreakdown(), input: 0.25, total: 0.25 };
+    const rows = parseCsv(sessionsToCsv([
+      summary({ id: 'recorded' }),
+      summary({ id: 'missing', provider: 'codex', requestCount: 0, usageIncomplete: true }),
+      summary({ id: 'unknown', models: ['gpt-future'], unpriced: true }),
+      summary({ id: 'partial-usage', usageIncomplete: true, cost: partial, costMain: 0.25 }),
+      summary({ id: 'partial-prices', unpriced: true, cost: partial, costMain: 0.25 }),
+    ]));
+    const header = rows[0]!;
+    const cell = (row: number, field: string) => rows[row]![header.indexOf(field)];
+    expect(cell(1, 'costStatus')).toBe('recorded');
+    expect(cell(1, 'costTotalUsd')).toBe('0.000000');
+    expect(cell(1, 'usageIncomplete')).toBe('false');
+    expect(cell(1, 'unpriced')).toBe('false');
+    expect(cell(2, 'costStatus')).toBe('unavailable');
+    expect(cell(2, 'usageIncomplete')).toBe('true');
+    expect(cell(3, 'costStatus')).toBe('unpriced');
+    expect(cell(3, 'unpriced')).toBe('true');
+    const calculatedFields = header.filter((field) => field.startsWith('cost') && field.endsWith('Usd'));
+    for (const field of calculatedFields) {
+      expect(cell(2, field)).toBe('');
+      expect(cell(3, field)).toBe('');
+    }
+    expect(cell(4, 'costStatus')).toBe('partial');
+    expect(cell(5, 'costStatus')).toBe('partial');
+    expect(cell(4, 'costTotalUsd')).toBe('0.250000');
+    expect(cell(5, 'costTotalUsd')).toBe('0.250000');
+    expect(cell(5, 'costMainUsd')).toBe('0.250000');
+  });
+});

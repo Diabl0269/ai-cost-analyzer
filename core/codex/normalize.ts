@@ -1,4 +1,5 @@
 /** Maps visible Codex rollout items to the shared transcript display/parser vocabulary. */
+import { codexPrompt } from './prompts.js';
 import { asRecord, list, parseJson, rec, str } from '../parse/raw.js';
 
 function text(value: unknown): string {
@@ -7,7 +8,10 @@ function text(value: unknown): string {
   return value.map((part) => str(asRecord(part), 'text') ?? '').filter(Boolean).join('\n');
 }
 
-export function normalizeCodexLine(raw: Record<string, unknown>): Record<string, unknown> | undefined {
+export function normalizeCodexLine(
+  raw: Record<string, unknown>,
+  options: { promptOnly?: boolean } = {},
+): Record<string, unknown> | undefined {
   const payload = rec(raw, 'payload');
   if (!payload) return undefined;
   const envelope = { timestamp: str(raw, 'timestamp') };
@@ -17,7 +21,11 @@ export function normalizeCodexLine(raw: Record<string, unknown>): Record<string,
     message: { content: str(payload, 'message') ?? '' },
   };
   if (raw['type'] === 'event_msg') {
-    if (type === 'user_message') return { ...envelope, type: 'user', message: { content: str(payload, 'message') ?? '' } };
+    if (type === 'user_message') {
+      const original = str(payload, 'message') ?? '';
+      const prompt = codexPrompt(original);
+      return { ...envelope, type: 'user', isMeta: prompt.isMeta, codexHarnessChars: prompt.harnessChars, message: { content: options.promptOnly ? prompt.text : original } };
+    }
     if (type === 'turn_aborted') return { ...envelope, type: 'system', subtype: 'interrupt', content: 'Turn interrupted' };
     return undefined;
   }
@@ -31,7 +39,17 @@ export function normalizeCodexLine(raw: Record<string, unknown>): Record<string,
       return { type: 'text', text: str(block, 'text') ?? '' };
     });
     if (typeof payload['content'] === 'string') content.push({ type: 'text', text: payload['content'] });
-    return { ...envelope, type: role === 'assistant' ? 'assistant' : 'user', isMeta: role !== 'user' && role !== 'assistant', message: { content } };
+    const original = content.map((part) => part.text ?? '').filter(Boolean).join('\n');
+    const prompt = codexPrompt(original);
+    const roleMeta = role !== 'user' && role !== 'assistant' || type === 'agent_message';
+    const isMeta = roleMeta || role === 'user' && prompt.isMeta;
+    const parsedContent = options.promptOnly && role === 'user' && prompt.harnessChars > 0
+      ? [{ type: 'text', text: prompt.text }, ...content.filter((part) => part.type === 'image')]
+      : content;
+    return { ...envelope, type: role === 'assistant' ? 'assistant' : 'user', isMeta,
+      codexHarnessChars: roleMeta ? original.length : role === 'user' ? prompt.harnessChars : 0,
+      message: { content: parsedContent } };
+
   }
   if (type === 'reasoning') return {
     ...envelope, type: 'assistant', message: { content: [{ type: 'thinking', thinking: text(payload['summary']) }] },

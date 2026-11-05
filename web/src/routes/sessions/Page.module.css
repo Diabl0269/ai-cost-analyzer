@@ -162,3 +162,12 @@
   color: var(--ink-3);
 }
 
+
+.codexModel {
+  display: inline-block;
+  max-width: 86px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-12);
+}

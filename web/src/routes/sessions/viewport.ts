@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 
 /**
- * How many columns the session ledger has room for.
+ * Initial viewport hints for the session ledger. Page.tsx makes the final choice from measured
+ * table space and actual column budgets, keeping the title and Cost visible beside the rail.
  *
  * `LedgerTable`'s own `secondary` flag drops a column under 900px, which is one step where this
  * table needs four: eleven columns of numerals need 1,122px of table beside a 264px rail, and a

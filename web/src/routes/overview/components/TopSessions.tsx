@@ -1,3 +1,4 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
 import { providerLabel } from '@/lib/provider';
 import { useMemo } from 'react';
 import { useNavigate } from '@/lib/navigation';
@@ -71,7 +72,7 @@ export function TopSessions({ sessions, currency }: TopSessionsProps) {
         header: 'Cost',
         numeric: true,
         sortValue: (row) => row.cost.total,
-        cell: (row) => <Money usd={row.cost.total} currency={currency} />,
+        cell: (row) => hasNoRecordedUsage(row) ? <span>Unavailable</span> : <Money usd={row.cost.total} currency={currency} />,
       },
     ],
     [currency],

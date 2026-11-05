@@ -22,6 +22,7 @@ export function codexUsage(raw: Raw): Raw {
 
 export async function parseCodexTranscript(file: DiscoveredFile, agentId: string | null = null): Promise<ParsedTranscript> {
   const builder = new Builder(file, agentId, agentId === null);
+  const titles: { customTitle?: string; aiTitle?: string } = {};
   let model = '';
   let effort: string | undefined;
   let requestedTier: string | undefined;
@@ -29,14 +30,17 @@ export async function parseCodexTranscript(file: DiscoveredFile, agentId: string
   let cumulative: Raw | undefined;
   let group = 0;
   const billedGroups = new Set<string>();
-  let responseUserMessages = false;
+  const responseUserMessages = new Map<string, number>();
   const responseIds = new Set<string>();
   const pending: { object: Raw; seq: number; range: ByteRange }[] = [];
   // Older rollouts duplicate human prompts as both response items and event messages. Inspect
   // shapes only first, then stream the content once into the builder without retaining the file.
   for await (const line of readJsonlLines(file.path)) {
     const raw = asRecord(parseJson(line.text));
-    if (raw?.['type'] === 'response_item' && rec(raw, 'payload')?.['role'] === 'user') { responseUserMessages = true; break; }
+    if (raw?.['type'] !== 'response_item' || rec(raw, 'payload')?.['role'] !== 'user') continue;
+    const content = rec(normalizeCodexLine(raw, { promptOnly: true }), 'message')?.['content'];
+    const key = Array.isArray(content) ? content.map((part) => str(asRecord(part), 'text') ?? '').filter(Boolean).join('\n') : typeof content === 'string' ? content : '';
+    responseUserMessages.set(key, (responseUserMessages.get(key) ?? 0) + 1);
   }
   function flush(usage?: Raw, billing?: { object: Raw; seq: number; range: ByteRange }): void {
     if (usage && pending.length === 0 && billing) pending.push(billing);
@@ -72,6 +76,10 @@ export async function parseCodexTranscript(file: DiscoveredFile, agentId: string
       if (branch) builder.meta.gitBranch = branch;
       if (version) builder.meta.version = version;
       builder.meta.entrypoint = str(payload, 'originator') ?? 'codex';
+      const customTitle = str(payload, 'custom_title') ?? str(payload, 'title') ?? str(payload, 'thread_name');
+      const aiTitle = str(payload, 'ai_title');
+      if (customTitle?.trim()) titles.customTitle = customTitle;
+      if (aiTitle?.trim()) titles.aiTitle = aiTitle;
       continue;
     }
     if (type === 'turn_context') {
@@ -123,9 +131,13 @@ export async function parseCodexTranscript(file: DiscoveredFile, agentId: string
       flush(normalizedUsage, { object: { type: 'assistant', timestamp: ts, message: { content: [] } }, seq: line.seq, range });
       continue;
     }
-    if (type === 'event_msg' && payload['type'] === 'user_message' && responseUserMessages) continue;
-    const normalized = normalizeCodexLine(raw);
+    const normalized = normalizeCodexLine(raw, { promptOnly: true });
     if (!normalized) continue;
+    if (type === 'event_msg' && payload['type'] === 'user_message') {
+      const key = str(rec(normalized, 'message'), 'content') ?? '';
+      const mirrors = responseUserMessages.get(key) ?? 0;
+      if (mirrors > 0) { responseUserMessages.set(key, mirrors - 1); continue; }
+    }
     normalized['uuid'] = `${file.sessionId}-${line.seq}`;
     if (normalized['type'] === 'assistant') {
       pending.push({ object: normalized, seq: line.seq, range });
@@ -134,11 +146,17 @@ export async function parseCodexTranscript(file: DiscoveredFile, agentId: string
       const isToolResult = Array.isArray(content) && asRecord(content[0])?.['type'] === 'tool_result';
       if (!isToolResult && normalized['isMeta'] !== true) flush();
       builder.take(normalized, line.seq, range);
+      const harnessChars = count(normalized['codexHarnessChars']);
+      if (harnessChars > 0) builder.injections.push({
+        seq: line.seq, turnIndex: builder.messages[builder.messages.length - 1]?.turnIndex ?? 0,
+        ...(ts ? { ts } : {}), kind: 'other', name: 'codex_context', chars: harnessChars, charsSource: 'content',
+      });
       if (type === 'compacted') builder.compactions.push({ seq: line.seq, turnIndex: builder.messages[builder.messages.length - 1]?.turnIndex ?? 0, ...(ts ? { ts } : {}) });
     }
   }
   flush();
   const transcript = builder.finish();
+  if (transcript.facts) Object.assign(transcript.facts, titles);
   // Text without usage remains readable/searchable but cannot establish a billed API call.
   transcript.requests = transcript.requests.filter((request) => billedGroups.has(request.messageId));
   const billedTurns = new Set(transcript.requests.map((request) => request.turnIndex));

@@ -156,8 +156,8 @@ export default function AgentsTab() {
     },
   ];
 
-  if (detail.summary.provider === 'codex') {
-    return <EmptyState title="Attribution unavailable for Codex" description="Codex rollouts do not record Claude Code hook, skill, workflow or agent attribution. Missing records do not mean no overhead or delegation occurred." />;
+  if (detail.summary.provider === 'codex' && rows.length === 0) {
+    return <EmptyState title="No linked agents recorded" description="No linked agent transcript was recorded for this rollout. Missing records do not mean no delegation occurred." />;
   }
 
   if (rows.length === 0) {

@@ -76,7 +76,7 @@ export function TopBar({
         <GlobalSearch hideField={onSearchPage || Boolean(firstRun)} />
       </div>
       <div className={styles.right}>
-        <Select label="Provider" hideLabel value={range.provider ?? ''}
+        <Select className={styles.provider} label="Provider" hideLabel value={range.provider ?? ''}
           onChange={(value) => range.setProvider(value === 'claude' || value === 'codex' ? value : undefined)}
           options={[{ value: '', label: 'All providers' }, { value: 'claude', label: 'Claude' }, { value: 'codex', label: 'Codex' }]} />
         {/* Below 720px this moves into the rail: see `LeftRail`'s range slot. */}

@@ -81,6 +81,12 @@ export function presetRange(id: RangePresetId, now: Date = new Date()): { from?:
  * Which preset (if any) produced this window. An empty window is **not** "all": the server
  * resolves missing bounds to the last 30 days, so that is what the top bar must highlight.
  */
+/** Match the analytics default in the session list and CSV; compare pickers remain unbounded. */
+export function sessionBounds(from?: string, to?: string, now: Date = new Date()): { from: string; to: string } {
+  const fallback = presetRange('30d', now);
+  return { from: from ?? fallback.from!, to: to ?? fallback.to! };
+}
+
 export function matchPreset(from: string | undefined, to: string | undefined, now: Date = new Date()): RangePresetId {
   if (!from && !to) return '30d';
   for (const preset of RANGE_PRESETS) {
@@ -244,6 +250,9 @@ export function useDateRange(): DateRangeStore {
       else updated.delete('provider');
       // Pagination cursors are only valid for their original provider.
       updated.delete('cursor');
+      // Model ids and entrypoints belong to a provider; stale ones can hide all its sessions.
+      updated.delete('model');
+      updated.delete('entrypoint');
       return updated;
     }, { replace: true, preventScrollReset: true });
   }, [setParams]);

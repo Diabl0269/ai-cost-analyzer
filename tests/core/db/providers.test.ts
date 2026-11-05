@@ -114,3 +114,26 @@ it('prices long contexts per request consistently across totals, details, attrib
     expect((await store.overview({ ...range, provider: 'claude' }, ctx)).budget.spent).toBe(0);
   } finally { store.close(); }
 });
+
+it('reports missing usage even though those sessions have no request rows, scoped to provider, folder and date', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'aca-coverage-')); homes.push(home);
+  const root = join(home, 'sessions'); mkdirSync(root);
+  const line = (type: string, payload: unknown) => ({ type, payload, timestamp: '2026-09-07T09:00:00.000Z' });
+  const user = line('response_item', { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Synthetic request' }] });
+  const assistant = line('response_item', { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'Synthetic answer' }] });
+  for (const [id, partial] of [['missing', false], ['partial', true]] as const) {
+    const rows = [line('session_meta', { id, cwd: '/workspace/coverage' }), line('turn_context', { model: 'gpt-5.3-codex' }), user, assistant];
+    if (partial) rows.push(line('event_msg', { type: 'token_count', info: { total_token_usage: { input_tokens: 100, output_tokens: 10 }, last_token_usage: { input_tokens: 100, output_tokens: 10 } } }), user, assistant);
+    writeFileSync(join(root, `rollout-${id}.jsonl`), rows.map(r => JSON.stringify(r)).join('\n')+'\n');
+  }
+  const dbPath = join(home, 'index.sqlite'); const pricing = defaultPricing();
+  const ctx = { pricing, settings: { ...defaultSettings(), hideScratchProjects: false }, now: new Date('2026-09-07T12:00:00Z') };
+  await runIndex({ roots: [root], dbPath, pricing }); const store = createStore(dbPath);
+  try {
+    const q = { from: '2026-09-07', to: '2026-09-07', provider: 'codex' as const };
+    expect((await store.overview(q, ctx)).usageCoverage).toEqual({ unavailableSessions: 1, partialSessions: 1 });
+    expect((await store.overview({ ...q, provider: 'claude' }, ctx)).usageCoverage).toEqual({ unavailableSessions: 0, partialSessions: 0 });
+    expect((await store.overview({ ...q, project: '/workspace/other' }, ctx)).usageCoverage).toEqual({ unavailableSessions: 0, partialSessions: 0 });
+    expect((await store.overview({ ...q, from: '2026-09-08', to: '2026-09-09' }, ctx)).usageCoverage).toEqual({ unavailableSessions: 0, partialSessions: 0 });
+  } finally { store.close(); }
+});

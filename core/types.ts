@@ -939,6 +939,8 @@ export interface Insight {
 }
 
 export interface OverviewResponse {
+  /** Incomplete transcripts with activity in the selected provider/project/date scope. */
+  usageCoverage?: { unavailableSessions: number; partialSessions: number };
   range: { from: string; to: string };
   totals: {
     cost: CostBreakdown;

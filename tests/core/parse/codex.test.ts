@@ -77,6 +77,21 @@ describe('Codex rollout adapter', () => {
     expect(session.main.messages.find((m) => m.preview === 'Unreported text')?.requestSeq).toBeUndefined();
   });
 
+  it('keeps event-only requests in mixed-format logs while skipping counted response echoes', async () => {
+    const { session } = await parsed([
+      message('user', '<environment_context><cwd>/workspace/example</cwd></environment_context>'),
+      line('event_msg', { type: 'user_message', message: 'Actual event-only request' }),
+      line('turn_context', { model: 'gpt-5' }), message('assistant', 'First answer'), counter(usage(100, 40, 20, 10)),
+      line('event_msg', { type: 'user_message', message: 'Mirrored request' }), message('user', 'Mirrored request'),
+      message('assistant', 'Second answer'), counter(usage(200, 80, 40, 20)),
+      line('event_msg', { type: 'user_message', message: 'Mirrored request' }),
+      message('assistant', 'Third answer'), counter(usage(300, 120, 60, 30)),
+    ]);
+    expect(session.main.meta.firstPrompt).toBe('Actual event-only request');
+    expect(session.main.promptCount).toBe(3);
+    expect(session.main.requests.map((request) => request.turnIndex)).toEqual([1, 2, 3]);
+  });
+
   it('keeps unknown models unknown and does not bill a resumed cumulative baseline', async () => {
     const { session } = await parsed([
       message('user', 'Resume old session'), message('assistant', 'A response'),

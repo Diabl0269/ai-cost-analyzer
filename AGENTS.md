@@ -24,3 +24,17 @@ A few local-tooling notes not worth putting in the public docs:
 - Indexing failures remain visible through `/api/status.indexError` and incremental updates; clear
   them only after a successful full rebuild/rescan, never just because a later file indexed.
 - Assistant transcripts missing token telemetry show unavailable costs, rather than exact zero.
+
+- `core/codex/prompts.ts` separates complete injected envelopes from real user requests; retain
+  raw transcript ranges and context attribution when changing title/prompt normalization.
+- Bump `PARSER_VERSION` in `core/db/indexer.ts` when derived parser facts change; it refreshes
+  unchanged transcripts and search entries without changing the database schema.
+- Internal data-page links retain provider/date/project filters. Project navigation lists all
+  folders in the provider/date scope, even while the main view is filtered to one folder.
+- CSV `costStatus` distinguishes recorded, partial, unpriced, and unavailable monetary values.
+
+- Overview `usageCoverage` counts incomplete sessions independently of request rows; preserve
+  provider/project/date scoping and do not imply zero cost when token telemetry is absent.
+
+- Session column selection uses measured table space and explicit width budgets. Cost must stay
+  visible without horizontal scrolling; keep responsive edge assertions when adding columns.

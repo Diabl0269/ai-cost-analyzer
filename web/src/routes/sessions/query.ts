@@ -8,7 +8,7 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import type { SessionSort, SessionsQuery } from '@core/types';
-import { useDateRange } from '@/lib/range';
+import { useDateRange, sessionBounds } from '@/lib/range';
 
 export const SESSION_SORTS: { value: SessionSort; label: string }[] = [
   { value: 'recent', label: 'Last activity' },
@@ -114,14 +114,14 @@ export function useSessionList(): SessionListState {
 
   const { from, to, project, provider } = range.query;
   const query = useMemo<SessionsQuery>(() => {
-    const built: SessionsQuery = { sort: filters.sort, order: filters.order, limit: PAGE_SIZE };
+    const built: SessionsQuery = { ...sessionBounds(from, to), sort: filters.sort, order: filters.order, limit: PAGE_SIZE };
     if (from) built.from = from;
     if (to) built.to = to;
     if (project) built.project = project;
     if (provider) built.provider = provider;
     if (filters.q) built.q = filters.q;
     if (filters.model) built.model = filters.model;
-    if (filters.entrypoint) built.entrypoint = filters.entrypoint;
+    if (filters.entrypoint && provider !== 'codex') built.entrypoint = filters.entrypoint;
     if (filters.pinned) built.pinned = true;
     if (filters.hasAgents) built.hasAgents = true;
     return built;

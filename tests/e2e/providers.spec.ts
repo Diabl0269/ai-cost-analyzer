@@ -20,6 +20,7 @@ test.describe('mixed providers', () => {
     const codexSession = codex.sessions.find((session: { id: string }) => session.id === CODEX_ID);
     expect(claude.sessions.some((session: { projectId: string }) => session.projectId === codexSession.projectId)).toBe(true);
 
+    await page.setViewportSize({ width: 1800, height: 900 });
     await openRoute(page, `/sessions?${RANGE}`);
     const provider = page.getByRole('combobox', { name: 'Provider', exact: true });
     await expect(provider).toHaveValue('');
@@ -29,6 +30,8 @@ test.describe('mixed providers', () => {
     await expect(page.getByRole('link', { name: 'Codex synthetic cache check', exact: true })).toHaveCount(0);
     await provider.selectOption('codex');
     await expect(page.getByRole('link', { name: 'Codex synthetic cache check', exact: true })).toBeVisible();
+    await expect(page.getByText('5.3-codex', { exact: true })).toBeVisible();
+    await expect(page.locator('[title="gpt-5.3-codex"]')).toBeVisible();
     const csv = page.getByRole('link', { name: /CSV/ });
     await expect(csv).toHaveAttribute('href', /provider=codex/);
     const exported = await request.get((await csv.getAttribute('href'))!);

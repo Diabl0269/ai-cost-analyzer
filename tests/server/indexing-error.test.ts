@@ -47,4 +47,14 @@ describe('retained indexing failure', () => {
     mock.workers.at(-1)!.emit('message', { type: 'done', result });
     expect(manager.status().error).toBeUndefined();
   });
+  it('reports a failed-session result as incomplete instead of up to date', () => {
+    const events: IndexEvent[] = [];
+    manager = createIndexManager({ roots: [], dbPath: '/synthetic/index.sqlite', pricing: defaultPricing, broadcast: event => events.push(event), workerPath: '/synthetic/worker.js' });
+    manager.requestRescan();
+    mock.workers.at(-1)!.emit('message', { type: 'done', result: { ...result, sessionsFailed: 1 } });
+    expect(manager.status()).toMatchObject({ indexing: false, error: expect.stringContaining('could not be parsed') });
+    expect(events.at(-1)?.type).toBe('error');
+    expect(events.some(event => event.type === 'indexed')).toBe(false);
+  });
+
 });

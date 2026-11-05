@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { flagsOf } from '../../../core/db/price-index.js';
+import { priceRequests } from '../../../core/cost/price-at-read.js';
+import { request } from '../cost/builders.js';
 import { defaultPricing } from '../../../core/pricing/defaults.js';
 import { createPriceResolver, findModelPrice, resolvePrice, STANDARD_FLAGS } from '../../../core/pricing/resolve.js';
-import { costOfUsage, emptyUsage } from '../../../core/pricing/money.js';
+import { costOfUsage, emptyUsage, requestCost } from '../../../core/pricing/money.js';
 
 describe('published OpenAI prices', () => {
   const pricing = defaultPricing();
@@ -55,5 +58,42 @@ describe('published OpenAI prices', () => {
       expect(findModelPrice(model, pricing)).toBeNull();
       expect(resolvePrice(model, STANDARD_FLAGS, pricing).unpriced).toBe(true);
     }
+  });
+});
+
+
+describe('unsupported OpenAI cache-write tariffs', () => {
+  const pricing = defaultPricing();
+  it('keeps a known cost floor while flagging unconfigured writes and isolating memo entries', () => {
+    const resolve = createPriceResolver(pricing);
+    const readOnly = resolve('gpt-6.1-sol', { ...STANDARD_FLAGS, cacheWriteTokens: 0 });
+    const write = resolve('gpt-6.1-sol', { ...STANDARD_FLAGS, cacheWriteTokens: 1_000 });
+    expect(readOnly.unpriced).toBe(false);
+    expect(write.unpriced).toBe(true);
+    expect(resolve('gpt-6.1-sol', STANDARD_FLAGS)).toBe(readOnly);
+    expect(resolve('gpt-6.1-sol', { ...STANDARD_FLAGS, cacheWriteTokens: 500 })).toBe(write);
+    expect(costOfUsage({ ...emptyUsage(), input: 1_000, cache5m: 1_000, output: 100 }, write, 0).total).toBeCloseTo(0.003);
+    expect(resolve('claude-opus-5', { ...STANDARD_FLAGS, cacheWriteTokens: 1_000 }).unpriced).toBe(false);
+  });
+  it('honors explicitly configured write prices instead of guessing retention rates', () => {
+    const configured = structuredClone(pricing);
+    const model = configured.models.find((row) => row.key === 'gpt-6.1-sol')!;
+    model.cacheWrite5m = 2.5;
+    model.cacheWrite1h = 5;
+    const price = resolvePrice(model.key, { ...STANDARD_FLAGS, cacheWriteTokens: 1_000 }, configured);
+    expect(price.unpriced).toBe(false);
+    expect(costOfUsage({ ...emptyUsage(), cache5m: 1_000 }, price, 0).total).toBeCloseTo(0.0025);
+  });
+  it('propagates writes from parsed usage and grouped DB usage, but not cache reads', () => {
+    const u = { ...emptyUsage(), input: 1_000, cache5m: 200, cache1h: 300, output: 100 };
+    const req = request({ seq: 1, model: 'gpt-6.1-sol', usage: u });
+    expect(requestCost(req, pricing).resolved.unpriced).toBe(true);
+    expect(priceRequests([req], pricing)[0]!.unpriced).toBe(true);
+    const flags = flagsOf({ cache5m: 200, cache1h: 300, cacheAssumed: 400 });
+    expect(flags.cacheWriteTokens).toBe(900);
+    expect(resolvePrice(req.model, flags, pricing).unpriced).toBe(true);
+    const readReq = request({ seq: 2, model: req.model, usage: { ...emptyUsage(), cacheRead: 1_000 } });
+    expect(requestCost(readReq, pricing).resolved.unpriced).toBe(false);
+    expect(priceRequests([readReq], pricing)[0]!.unpriced).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
 import { useMemo, useRef, useState } from 'react';
 import { scaleLinear } from 'd3-scale';
 import { plural } from '@core/pricing/format.js';
@@ -148,6 +149,10 @@ export default function TimelineTab() {
       cell: (gap) => <Money usd={gap.rewarmCost} />,
     },
   ];
+
+  if (hasNoRecordedUsage(detail.summary)) {
+    return <EmptyState title="Cost timeline unavailable" description="No token usage was recorded for this transcript. Its prompts and tool calls are still available in the Transcript tab." />;
+  }
 
   if (turns.length === 0) {
     return <EmptyState icon="chart" title="No turn to plot" description="This session has no human prompt, so there is no timeline to draw." />;

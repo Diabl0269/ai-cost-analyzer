@@ -8,6 +8,13 @@ describe('cleanPrompt', () => {
     expect(cleanPrompt('')).toBe('');
   });
 
+  it('uses readable Markdown link labels without displaying local paths or URLs', () => {
+    expect(cleanPrompt('[$jira:create-jira-ticket](/workspace/skills/create-jira-ticket/SKILL.md) Create a bug')).toBe('$jira:create-jira-ticket Create a bug');
+    expect(cleanPrompt('[docs](https://example.test/docs) and [local](</workspace/My Skills/SKILL.md>)')).toBe('docs and local');
+    expect(cleanPrompt('[local](/workspace/skills(copy)/SKILL.md)')).toBe('local');
+    expect(cleanPrompt('![Screenshot](/workspace/screenshot.png)')).toBe('![Screenshot](/workspace/screenshot.png)');
+  });
+
   it('renders a slash command as /<command> <args>', () => {
     const raw = '<command-name>/pr-review-flow</command-name>\n<command-message>pr-review-flow</command-message>\n<command-args>PR 42 on dev/alpha</command-args>';
     expect(cleanPrompt(raw)).toBe('/pr-review-flow PR 42 on dev/alpha');
@@ -56,6 +63,18 @@ describe('resolveTitle', () => {
     for (const [override, title, source] of steps) {
       expect(resolveTitle({ ...all, ...override })).toEqual({ title, source });
     }
+  });
+
+  it('uses a complete leading Automation header task name only for the title', () => {
+    const prompt = 'Automation: Daily summary\nAutomation ID: daily-summary\nAutomation memory: $CODEX_HOME/automations/daily-summary/memory.md\n\nSummarize the current work.';
+    expect(resolveTitle({ firstPrompt: prompt, sessionId }).title).toBe('Daily summary');
+    expect(cleanPrompt(prompt)).toContain('Automation ID: daily-summary');
+    for (const quoted of [
+      'Explain this metadata:\n' + prompt,
+      '> ' + prompt.replace(/\n/g, '\n> '),
+      '```text\n' + prompt + '\n```',
+      'Automation: Explain scheduling\nKeep the ID and memory in the result.',
+    ]) expect(resolveTitle({ firstPrompt: quoted, sessionId }).title).toBe(cleanPrompt(quoted));
   });
 
   it('falls back to a short session id', () => {
