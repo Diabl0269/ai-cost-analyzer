@@ -51,7 +51,7 @@ export function FirstRun({ roots }: FirstRunProps) {
         )}
         <p className="ui-sm">
           Claude Code writes one directory per project under <code>~/.claude/projects</code>, and one{' '}
-          <code>.jsonl</code> file per session inside it. Codex writes rollout JSONL files under <code>~/.codex/sessions</code> and <code>~/.codex/archived_sessions</code>. A root with no session file indexes to nothing.
+          <code>.jsonl</code> file per session inside it. Codex writes rollout JSONL files under <code>~/.codex/sessions</code> and <code>~/.codex/archived_sessions</code>. Copilot CLI and the Copilot app write events under <code>~/.copilot/session-state</code>. Saved VS Code chat sessions are detected from editor storage. A root with no session file indexes to nothing.
         </p>
         <div className="cluster">
           <Button

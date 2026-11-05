@@ -68,6 +68,8 @@ function sensitivePaths(ccaHome: string): string[] {
     join(home, '.git-credentials'),
     join(home, '.claude'),
     join(home, '.codex'),
+    join(home, '.copilot'),
+    ...(process.env.COPILOT_HOME ? [resolve(expandHome(process.env.COPILOT_HOME))] : []),
     ...(process.env.CODEX_HOME ? [resolve(expandHome(process.env.CODEX_HOME))] : []),
     resolve(ccaHome),
   ];
@@ -78,6 +80,8 @@ function sensitivePaths(ccaHome: string): string[] {
 function isExplicitlyAllowed(resolvedRoot: string): boolean {
   const codexHome = resolve(expandHome(process.env.CODEX_HOME ?? join(homedir(), '.codex')));
   const allowed = [join(homedir(), '.claude', 'projects'),
+    join(homedir(), '.copilot', 'session-state'),
+    join(resolve(expandHome(process.env.COPILOT_HOME ?? '~/.copilot')), 'session-state'),
     join(homedir(), '.codex', 'sessions'), join(homedir(), '.codex', 'archived_sessions'),
     join(codexHome, 'sessions'), join(codexHome, 'archived_sessions')];
   return allowed.some((root) => isAncestorOrEqual(resolve(root), resolvedRoot));

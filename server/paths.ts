@@ -3,6 +3,7 @@
  * transcript roots to index. Ensures directories/files have restrictive permissions since
  * the DB and config may contain (derived) cost data for the user's private transcripts.
  */
+import { copilotRoots, copilotEditorRoots } from './copilot-paths.js';
 import { existsSync, mkdirSync, chmodSync, statSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, resolve, sep } from 'node:path';
@@ -75,6 +76,8 @@ export interface ResolveRootsOptions {
   claudeDirFlag?: string;
   /** --codex-dir CLI flag: Codex home or a sessions/archived_sessions directory */
   codexDirFlag?: string;
+  /** Copilot home/session-state or VS Code transcript root. */
+  copilotDirFlag?: string;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -87,24 +90,31 @@ export function resolveRoots(opts: ResolveRootsOptions = {}): string[] {
   const env = opts.env ?? process.env;
   const claude = opts.claudeDirFlag ?? env.CCA_CLAUDE_DIR;
   const codex = opts.codexDirFlag ?? env.CCA_CODEX_DIR;
+  const copilot = opts.copilotDirFlag ?? env.CCA_COPILOT_DIR;
   // An explicit source selection stays isolated (including fixtures and demo runs).
-  if (claude || codex) {
+  if (claude || codex || copilot) {
     return [...new Set([
       ...(claude ? [resolve(expandHome(claude))] : []),
       ...(codex ? codexRoots(codex) : []),
+      ...(copilot ? selectedCopilotRoots(copilot) : []),
     ])];
   }
   const configured = opts.settingsRoots?.length ? opts.settingsRoots : [DEFAULT_ROOT];
   // Upgrade only the legacy default, preserving deliberately configured custom roots.
   const roots = configured.length === 1 && resolve(expandHome(configured[0]!)) === resolve(expandHome(DEFAULT_ROOT))
-    ? [...configured, ...codexRoots(env.CODEX_HOME ?? '~/.codex')]
+    ? [...configured, ...codexRoots(env.CODEX_HOME ?? '~/.codex'), ...copilotRoots(expandHome(env.COPILOT_HOME ?? '~/.copilot'))]
     : configured;
-  return [...new Set(roots.map((r) => {
+  const resolved = roots.map((r) => {
     if (env.CODEX_HOME && (r === '~/.codex/sessions' || r === '~/.codex/archived_sessions')) {
       return resolve(expandHome(join(env.CODEX_HOME, r.endsWith('/sessions') ? 'sessions' : 'archived_sessions')));
     }
+    if (env.COPILOT_HOME && r === '~/.copilot/session-state') return join(resolve(expandHome(env.COPILOT_HOME)), 'session-state');
     return resolve(expandHome(r));
-  }))];
+  });
+  const standardRoots = [DEFAULT_ROOT, '~/.codex/sessions', '~/.codex/archived_sessions', '~/.copilot/session-state'];
+  const defaultSelection = configured.length === 1 && configured[0] === DEFAULT_ROOT || configured.length === standardRoots.length && configured.every((root, i) => root === standardRoots[i]);
+  if (defaultSelection) resolved.push(...copilotEditorRoots(env));
+  return [...new Set(resolved)];
 }
 
 /** Restrict a Codex home to its transcript directories; never walk auth/config files. */
@@ -138,4 +148,11 @@ export function directoryExists(path: string): boolean {
 
 export function isAbsolutePath(path: string): boolean {
   return isAbsolute(path);
+}
+
+function selectedCopilotRoots(directory: string): string[] {
+  const root = resolve(expandHome(directory));
+  const leaf = root.split(sep).at(-1);
+  if (existsSync(join(root, 'workspaceStorage')) || ['User', 'workspaceStorage', 'globalStorage', 'chatSessions', 'emptyWindowChatSessions'].includes(leaf ?? '') || existsSync(join(root, 'chatSessions'))) return [root];
+  return copilotRoots(root);
 }

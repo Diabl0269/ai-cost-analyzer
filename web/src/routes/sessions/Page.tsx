@@ -1,3 +1,4 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
 import { providerLabel } from '@/lib/provider';
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from '@/lib/navigation';
@@ -94,7 +95,7 @@ export default function SessionsPage() {
     if (viewportWidth === 'narrow' || tableWidth === 0) return viewportWidth;
     for (const candidate of ['full', 'rich', 'mid', 'narrow'] as const) {
       const occupied = COLUMN_SETS[candidate]
-        .filter((id) => id !== 'title' && !(range.provider === 'codex' && id === 'reported'))
+        .filter((id) => id !== 'title' && !((range.provider === 'codex' || range.provider === 'copilot') && id === 'reported'))
         .reduce((sum, id) => sum + (COLUMN_PX[id] ?? 0), 0);
       if (occupied + MIN_TITLE_PX + 6 <= tableWidth) return candidate;
     }
@@ -106,7 +107,7 @@ export default function SessionsPage() {
   const titlePx = useMemo(() => {
     if (tableWidth <= 0) return null;
     const others = COLUMN_SETS[ledgerWidth]
-      .filter((id) => id !== 'title' && !(range.provider === 'codex' && id === 'reported'))
+      .filter((id) => id !== 'title' && !((range.provider === 'codex' || range.provider === 'copilot') && id === 'reported'))
       .reduce((sum, id) => sum + (COLUMN_PX[id] ?? 0), 0);
     // A couple of pixels for the table's own border.
     return Math.max(MIN_TITLE_PX, tableWidth - others - 6);
@@ -246,12 +247,12 @@ export default function SessionsPage() {
       sortValue: (session) => session.cost.total,
       cell: (session) => (
         <span className={styles.costCell}>
-          {session.usageIncomplete && session.requestCount === 0 ? (
+          {hasNoRecordedUsage(session) ? (
             <Tooltip content="This rollout contains assistant messages but no recorded token usage. Its cost is unavailable.">
               <span className="muted">Unavailable</span>
             </Tooltip>
           ) : <Money usd={session.cost.total} className={styles.cost} />}
-          {session.usageIncomplete && session.requestCount > 0 ? (
+          {session.usageIncomplete && !hasNoRecordedUsage(session) ? (
             <Tooltip content="Some token usage is missing. This total covers recorded tokens only.">
               <span className={styles.unpriced} aria-label="Incomplete usage"><Icon name="warning" size={12} /></span>
             </Tooltip>
@@ -294,7 +295,7 @@ export default function SessionsPage() {
       width: `${COLUMN_PX.models}px`,
       cell: (session) => (
         <span className={styles.models}>
-          {session.provider === 'codex' ? (
+          {(session.provider === 'codex' || session.provider === 'copilot') ? (
             <>
               <span className={styles.codexModel} title={session.models[0]}>
                 {/auto.?review/i.test(session.models[0] ?? '') ? 'Auto-review' : (session.models[0] ?? 'Unknown').replace(/^gpt-/i, '')}
@@ -347,7 +348,7 @@ export default function SessionsPage() {
       width: `${COLUMN_PX.agents}px`,
       headerTitle: 'Subagents this session launched, and workflow runs',
       cell: (session) =>
-        session.provider === 'codex' && session.agentCount === 0 ? <span title="No linked agent transcript recorded for this Codex session">{EM_DASH}</span> : session.agentCount > 0 || session.workflowRunCount > 0 ? (
+        (session.provider === 'codex' || session.provider === 'copilot') && session.agentCount === 0 ? <span title="No linked agent transcript recorded for this session">{EM_DASH}</span> : session.agentCount > 0 || session.workflowRunCount > 0 ? (
           <span
             title={`${plural(session.agentCount, 'subagent')} and ${plural(session.workflowRunCount, 'workflow run')}`}
           >
@@ -362,16 +363,16 @@ export default function SessionsPage() {
       id: 'reported',
       header: <ReportedHeader />,
       width: `${COLUMN_PX.reported}px`,
-      cell: (session) => session.provider === 'codex' ? <span title="Codex has no Claude Code cost-state tally">{EM_DASH}</span> : <ReportedBadge status={session.reportedStatus} />,
+      cell: (session) => (session.provider === 'codex' || session.provider === 'copilot') ? <span title="This provider has no Claude Code cost-state tally">{EM_DASH}</span> : <ReportedBadge status={session.reportedStatus} />,
     };
 
     // Widest set that fits, never at the cost of the two columns that carry the answer.
     if (ledgerWidth === 'narrow') return [pinColumn, titleColumn, costColumn];
     if (ledgerWidth === 'mid') return [pinColumn, titleColumn, started, duration, requests, costColumn];
     if (ledgerWidth === 'rich') {
-      return [pinColumn, titleColumn, started, duration, models, prompts, requests, costColumn, ...(range.provider === 'codex' ? [] : [reported])];
+      return [pinColumn, titleColumn, started, duration, models, prompts, requests, costColumn, ...((range.provider === 'codex' || range.provider === 'copilot') ? [] : [reported])];
     }
-    return [pinColumn, titleColumn, started, duration, models, prompts, requests, tools, agents, costColumn, ...(range.provider === 'codex' ? [] : [reported])];
+    return [pinColumn, titleColumn, started, duration, models, prompts, requests, tools, agents, costColumn, ...((range.provider === 'codex' || range.provider === 'copilot') ? [] : [reported])];
   }, [pin, narrow, ledgerWidth, titlePx, range.provider]);
 
   const sort: LedgerSort = { columnId: list.filters.sort, direction: list.filters.order };

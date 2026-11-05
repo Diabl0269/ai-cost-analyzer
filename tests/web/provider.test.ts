@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { readProvider, withProvider } from '../../web/src/lib/provider.js';
 
 describe('global provider navigation', () => {
-  it('accepts only the two supported providers, with absence meaning all', () => {
+  it('accepts only supported providers, with absence meaning all', () => {
     expect(readProvider('')).toBeUndefined();
     expect(readProvider('?provider=unknown')).toBeUndefined();
     expect(readProvider('?provider=codex')).toBe('codex');
+    expect(readProvider('?provider=copilot')).toBe('copilot');
+    expect(withProvider('/sessions/id/transcript', '?provider=copilot')).toBe('/sessions/id/transcript?provider=copilot');
     expect(readProvider('?provider=claude')).toBe('claude');
   });
   it('retains provider across search, transcript jumps and document anchors', () => {

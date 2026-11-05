@@ -150,6 +150,9 @@ export default function TimelineTab() {
     },
   ];
 
+  if (detail.requests.some(request => request.usageGranularity === 'session')) {
+    return <EmptyState title="Cost timeline unavailable" description="Saved session totals do not establish individual request timing or per-turn costs. Recorded totals remain available in Summary." />;
+  }
   if (hasNoRecordedUsage(detail.summary)) {
     return <EmptyState title="Cost timeline unavailable" description="No token usage was recorded for this transcript. Its prompts and tool calls are still available in the Transcript tab." />;
   }

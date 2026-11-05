@@ -138,8 +138,8 @@ const REQUEST_SUMS = `SUM(r.input) AS input, SUM(r.output) AS output, SUM(r.cach
   SUM(r.cache5m) AS cache5m, SUM(r.cache1h) AS cache1h, SUM(r.cacheAssumed) AS cacheAssumed,
   SUM(r.thinking) AS thinking,
   SUM(r.webSearchRequests) AS webSearchRequests, SUM(r.webFetchRequests) AS webFetchRequests,
-  r.contextTokens AS pricingContextTokens, SUM(r.contextTokens) AS contextTokens, SUM(CASE WHEN r.iterIndex = 0 THEN 1 ELSE 0 END) AS requests,
-  COUNT(*) AS billedRequests`;
+  r.contextTokens AS pricingContextTokens, SUM(r.contextTokens) AS contextTokens, SUM(CASE WHEN r.iterIndex = 0 AND COALESCE(r.messageId, '') NOT LIKE 'copilot-aggregate-%' THEN 1 ELSE 0 END) AS requests,
+  SUM(CASE WHEN COALESCE(r.messageId, '') NOT LIKE 'copilot-aggregate-%' THEN 1 ELSE 0 END) AS billedRequests`;
 
 export function modelRowsInRange(ctx: AnalyticsContext): ModelCostRow[] {
   const rows = ctx.db
@@ -773,7 +773,7 @@ export function totalsFromModelRows(rows: readonly ModelCostRow[]): {
 export function requestCountsByProject(ctx: AnalyticsContext): Map<string, number> {
   const rows = ctx.db
     .prepare(
-      `SELECT (SELECT s2.projectId FROM sessions s2 WHERE s2.id = r.sessionId) AS projectId, COUNT(*) AS n
+      `SELECT (SELECT s2.projectId FROM sessions s2 WHERE s2.id = r.sessionId) AS projectId, SUM(CASE WHEN COALESCE(r.messageId, '') NOT LIKE 'copilot-aggregate-%' THEN 1 ELSE 0 END) AS n
        ${scopedSql(ctx.scope, 'requests', 'r', ' AND r.iterIndex = 0')}
        GROUP BY projectId`,
     )

@@ -1,4 +1,4 @@
-node_modules/
+node_modules
 dist/
 .cca-e2e-home/
 *.sqlite

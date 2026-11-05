@@ -200,7 +200,7 @@ class SqliteStore implements Store {
 
   async status(ctx: QueryContext): Promise<StoreStatus> {
     const count = (table: string): number => {
-      const row = this.db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as Row | undefined;
+      const row = this.db.prepare(`SELECT COUNT(*) AS n FROM ${table}${table === 'requests' ? " WHERE COALESCE(messageId, '') NOT LIKE 'copilot-aggregate-%'" : ''}`).get() as Row | undefined;
       return row ? num(row, 'n') : 0;
     };
     const models = (this.db.prepare('SELECT DISTINCT model FROM requests').all() as Row[]).map((row) =>

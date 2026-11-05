@@ -2,6 +2,8 @@
  * One `DiscoveredSession` → one `ParsedSession`: the main transcript, its subagents, its workflow
  * runs, and the side files (`agent-*.meta.json`, `journal.jsonl`, `custom-title.json`).
  */
+import { parseVscodeCopilotTranscript } from '../copilot/vscode.js';
+import { parseCopilotTranscript } from '../copilot/transcript.js';
 import { parseCodexTranscript } from '../codex/transcript.js';
 import { readFile } from 'node:fs/promises';
 import { readJsonlLines } from '../jsonl.js';
@@ -17,10 +19,15 @@ import { asRecord, num, parseJson, str } from './raw.js';
 import { parseTranscript } from './transcript.js';
 
 export async function parseSession(d: DiscoveredSession): Promise<ParsedSession> {
-  const parse = d.provider === 'codex' || d.mainFile.provider === 'codex'
+  const parse = d.mainFile.sessionId.startsWith('copilot-vscode-')
+    ? (file: DiscoveredFile, opts: { agentId: string | null }) => parseVscodeCopilotTranscript(file, opts.agentId)
+    : d.provider === 'copilot' || d.mainFile.provider === 'copilot'
+    ? (file: DiscoveredFile, opts: { agentId: string | null }) => parseCopilotTranscript(file, opts.agentId)
+    : d.provider === 'codex' || d.mainFile.provider === 'codex'
     ? (file: DiscoveredFile, opts: { agentId: string | null }) => parseCodexTranscript(file, opts.agentId)
     : parseTranscript;
   const main = await parse(d.mainFile, { agentId: null });
+  if (d.mainFile.sessionId.startsWith('copilot-vscode-') && !main.meta.cwd && d.projectDirName.startsWith('copilot-project-')) main.meta.cwd = d.projectDirPath;
 
   const agents: ParsedTranscript[] = [];
   const agentMeta: Record<string, AgentMeta> = {};

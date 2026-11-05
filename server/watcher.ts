@@ -68,7 +68,7 @@ export function startWatcher(roots: string[], deps: WatcherDeps): Watcher {
       const watcher = watch(root, { recursive: true }, (_eventType, filename) => {
         if (!filename) return;
         const name = filename.toString();
-        if (!isRelevant(name)) return;
+        if (!isRelevant(name) && !(name.endsWith('.json') && /(?:^|[/\\])(?:chatSessions|emptyWindowChatSessions)[/\\]/.test(join(root, name)))) return;
         onFileChanged(join(root, name));
       });
       watcher.on('error', (err) => {

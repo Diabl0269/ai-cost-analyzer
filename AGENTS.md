@@ -38,3 +38,18 @@ A few local-tooling notes not worth putting in the public docs:
 
 - Session column selection uses measured table space and explicit width budgets. Cost must stay
   visible without horizontal scrolling; keep responsive edge assertions when adding columns.
+
+- Copilot adapters: `core/copilot/` handles CLI/app events and VS Code snapshots/journals;
+  `server/copilot-paths.ts` discovers platform-specific local editor stores. See `docs/dev/copilot.md`.
+- `CCA_COPILOT_DIR` / `--copilot-dir` choose explicit sources; `COPILOT_HOME` changes the default.
+  Provider queries also accept `copilot`; `CCA_E2E_COPILOT_DIR` enables synthetic browser checks.
+- Copilot aggregate request rows are accounting buckets, excluded from API call counts; never infer
+  per-request context tariffs or tool allocation from session totals. Credits are not USD.
+- VS Code journal transcript paging uses reconstructed virtual sequence numbers, not byte ranges.
+  Retain visible models via `recordedModels` when billing usage is unavailable.
+- `codex-auto-review` has no confirmed published zero tariff: keep it unpriced unless billing
+  evidence changes. `docs/dev/auto-review-pricing.md` records the checked sources and regression.
+- Copilot session buckets retain token/cost totals but are excluded from individual call counts
+  in sessions, models, overview and index status. Preserve `RequestCost.usageGranularity` in UI guards.
+- `core/cost/usage-coverage.ts` owns absent-versus-partial usage semantics for UI and CSV;
+  aggregate tokens can exist without observed API calls. Do not use request count alone.

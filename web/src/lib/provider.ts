@@ -1,12 +1,13 @@
 import type { To } from 'react-router';
 
-export type Provider = 'claude' | 'codex';
+export type { Provider } from '../../../core/types.js';
+import type { Provider } from '../../../core/types.js';
 export function readProvider(search: string): Provider | undefined {
   const value = new URLSearchParams(search).get('provider');
-  return value === 'claude' || value === 'codex' ? value : undefined;
+  return value === 'claude' || value === 'codex' || value === 'copilot' ? value : undefined;
 }
 export function providerLabel(provider?: Provider): string {
-  return provider === 'codex' ? 'Codex' : 'Claude';
+  return provider === 'copilot' ? 'Copilot' : provider === 'codex' ? 'Codex' : 'Claude';
 }
 
 /** Carry global filters across data pages without copying page-local search or pagination. */

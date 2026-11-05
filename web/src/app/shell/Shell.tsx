@@ -162,7 +162,7 @@ export function Shell() {
           {drawerOpen ? <button type="button" className={styles.drawerScrim} aria-label="Close navigation" onClick={() => setDrawerOpen(false)} /> : null}
           <main id="main" className={styles.main} ref={mainRef}>
             {visibleIndexError ? <Callout tone="warn" title="Index incomplete">{visibleIndexError} Totals cover only the indexed files. Re-index all roots in Settings to retry.</Callout> : null}
-            {!firstRun && range.provider !== 'claude' ? <p className="ui-xs muted" role="note">Codex amounts are API-price estimates, not your subscription bill. Claude-only attribution is unavailable for Codex.</p> : null}
+            {!firstRun && range.provider !== 'claude' ? <p className="ui-xs muted" role="note">Codex and Copilot amounts are API-price estimates, not your subscription bill. Claude-only attribution is unavailable for these providers. Copilot request counts include only individually recorded calls.</p> : null}
             {showFirstRun ? <FirstRun roots={status.data?.roots ?? []} /> : <Outlet />}
           </main>
         </div>

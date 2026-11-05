@@ -45,7 +45,7 @@ import { MAIN_AGENT } from './write-session.js';
 
 const REQUEST_DETAIL_COLUMNS = `sessionId, agentId, seq, iterIndex, turnIndex, ts, model, speed, serviceTier,
   inferenceGeo, input, output, cacheRead, cache5m, cache1h, cacheAssumed, thinking, webSearchRequests,
-  webFetchRequests, contextTokens, stopReason, isFallback, skill, plugin, mcpServer, mcpTool, toolNamesJson`;
+  webFetchRequests, contextTokens, stopReason, isFallback, skill, plugin, mcpServer, mcpTool, toolNamesJson, messageId`;
 
 function addUsage(target: TokenUsage, add: TokenUsage): void {
   target.input += add.input;
@@ -111,7 +111,8 @@ export function loadRequestCosts(
     if (stopReason) costRow.stopReason = stopReason;
     bySeq.set(seq, { row: costRow, usage: totals });
   }
-  return [...bySeq.values()].map((entry) => toRequestCost(entry.row));
+  const aggregateSeqs = new Set(rows.filter(row => str(row, 'messageId').startsWith('copilot-aggregate-')).map(row => num(row, 'seq')));
+  return [...bySeq.values()].map((entry) => ({ ...toRequestCost(entry.row), ...(aggregateSeqs.has(entry.row.seq) ? { usageGranularity: 'session' as const } : {}) }));
 }
 
 export interface AgentTotals {
@@ -134,7 +135,7 @@ export function loadAgentTotals(
         SUM(cache1h) AS cache1h, SUM(cacheAssumed) AS cacheAssumed, SUM(thinking) AS thinking,
         SUM(webSearchRequests) AS webSearchRequests,
         SUM(webFetchRequests) AS webFetchRequests, contextTokens AS pricingContextTokens, SUM(contextTokens) AS contextTokens,
-        SUM(CASE WHEN iterIndex = 0 THEN 1 ELSE 0 END) AS requests
+        SUM(CASE WHEN iterIndex = 0 AND COALESCE(messageId, '') NOT LIKE 'copilot-aggregate-%' THEN 1 ELSE 0 END) AS requests
        FROM requests WHERE sessionId = ?
        GROUP BY agentId, model, speed, serviceTier, inferenceGeo, contextTokens`,
     )
@@ -409,7 +410,7 @@ export function buildTurns(
   for (const request of requests) {
     const existing = turns.get(request.turnIndex);
     if (existing) {
-      existing.requestCount += 1;
+      if (request.usageGranularity !== 'session') existing.requestCount += 1;
       existing.cost += request.cost.total;
       existing.startSeq = Math.min(existing.startSeq, request.seq);
       continue;
@@ -420,7 +421,7 @@ export function buildTurns(
       startSeq: preview?.seq ?? request.seq,
       ts: request.ts,
       promptPreview: preview?.preview ?? '',
-      requestCount: 1,
+      requestCount: request.usageGranularity === 'session' ? 0 : 1,
       toolCallCount: 0,
       cost: request.cost.total,
     };

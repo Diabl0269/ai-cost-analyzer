@@ -55,8 +55,8 @@ const GROUPED_USAGE = `
   SUM(thinking) AS thinking,
   SUM(webSearchRequests) AS webSearchRequests, SUM(webFetchRequests) AS webFetchRequests,
   contextTokens AS pricingContextTokens, SUM(contextTokens) AS contextTokens,
-  SUM(CASE WHEN iterIndex = 0 THEN 1 ELSE 0 END) AS requests,
-  COUNT(*) AS billedRequests`;
+  SUM(CASE WHEN iterIndex = 0 AND COALESCE(messageId, '') NOT LIKE 'copilot-aggregate-%' THEN 1 ELSE 0 END) AS requests,
+  SUM(CASE WHEN COALESCE(messageId, '') NOT LIKE 'copilot-aggregate-%' THEN 1 ELSE 0 END) AS billedRequests`;
 
 /** agentId → runId for the sessions in scope, so agent spend can be split from workflow spend. */
 function workflowAgents(db: DatabaseSync, scope: SqlScope): Set<string> {
@@ -220,7 +220,7 @@ export function toSessionSummary(
 ): SessionSummary {
   const summary: SessionSummary = {
     id: str(row, 'id'),
-    provider: str(row, 'provider') === 'codex' ? 'codex' : 'claude',
+    provider: str(row, 'provider') === 'copilot' ? 'copilot' : str(row, 'provider') === 'codex' ? 'codex' : 'claude',
     ...(num(row, 'usageIncomplete') ? { usageIncomplete: true } : {}),
     projectId: str(row, 'projectId'),
     projectPath,

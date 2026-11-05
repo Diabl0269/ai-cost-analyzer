@@ -64,7 +64,9 @@ export class ConfigStore {
         const settingsResult = userSettingsSchema.safeParse(raw.settings);
         if (settingsResult.success) {
           settings = settingsResult.data;
-          if (settings.roots.length === 1 && settings.roots[0] === '~/.claude/projects') {
+          const legacyDefault = ['~/.claude/projects', '~/.codex/sessions', '~/.codex/archived_sessions'];
+          if ((settings.roots.length === 1 && settings.roots[0] === legacyDefault[0]) ||
+              (settings.roots.length === legacyDefault.length && settings.roots.every((root, i) => root === legacyDefault[i]))) {
             settings = { ...settings, roots: defaultSettings().roots };
             upgraded = true;
           }
