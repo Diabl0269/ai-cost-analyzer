@@ -6,8 +6,9 @@ import type { DiscoveredSession, IndexProgress, ParsedSession, PricingConfig, Us
 import type { QueryContext } from '../../../core/store.js';
 import { defaultPricing } from '../../../core/pricing/defaults.js';
 import { defaultSettings } from '../../../core/settings.js';
-import { runIndex, indexChangedFiles } from '../../../core/db/indexer.js';
+import { META_PARSER_VERSION, PARSER_VERSION, runIndex, indexChangedFiles } from '../../../core/db/indexer.js';
 import { createStore } from '../../../core/db/store.js';
+import { getMeta, openDatabase, setMeta } from '../../../core/db/schema.js';
 import { SESSION_ID } from '../cost/builders.js';
 import { EXPECTED, EXPECTED_MAIN, EXPECTED_TOTAL, buildFixture } from './fixture.js';
 
@@ -197,5 +198,45 @@ describe('hand-computed totals', () => {
     } finally {
       store.close();
     }
+  });
+});
+
+
+describe('parser cache upgrades', () => {
+  it('reparses unchanged files to refresh derived titles and then resumes incremental skipping', async () => {
+    const fixture = buildFixture(root);
+    const opts = { roots: [root], dbPath, pricing, ...deps(fixture.session) };
+    await runIndex(opts);
+    const db = openDatabase(dbPath);
+    setMeta(db, META_PARSER_VERSION, 'old');
+    db.close();
+    fixture.session.main.facts!.customTitle = 'Refreshed human request';
+    const upgraded = await runIndex(opts);
+    expect(upgraded.sessionsIndexed).toBe(1);
+    const store = createStore(dbPath);
+    try { expect((await store.getSession(SESSION_ID, ctx))?.summary.title).toBe('Refreshed human request'); }
+    finally { store.close(); }
+    expect((await runIndex(opts)).sessionsSkipped).toBe(1);
+  });
+
+  it('upgrades the whole parser cache when the first event after an upgrade is a watcher update', async () => {
+    const fixture = buildFixture(root);
+    const opts = { roots: [root], dbPath, pricing, ...deps(fixture.session) };
+    await runIndex(opts);
+    const db = openDatabase(dbPath);
+    setMeta(db, META_PARSER_VERSION, 'old'); db.close();
+    expect((await indexChangedFiles([join(root, 'unrelated.jsonl')], opts)).sessionsIndexed).toBe(1);
+    const check = openDatabase(dbPath);
+    expect(getMeta(check, META_PARSER_VERSION)).toBe(PARSER_VERSION); check.close();
+  });
+
+  it('does not certify a parser upgrade when a whole session fails', async () => {
+    const fixture = buildFixture(root);
+    const opts = { roots: [root], dbPath, pricing, ...deps(fixture.session) };
+    await runIndex(opts);
+    const db = openDatabase(dbPath); setMeta(db, META_PARSER_VERSION, 'old'); db.close();
+    const result = await runIndex({ ...opts, parse: async () => { throw new Error('Synthetic parse failure'); } });
+    expect(result.sessionsFailed).toBe(1);
+    const check = openDatabase(dbPath); expect(getMeta(check, META_PARSER_VERSION)).toBe('old'); check.close();
   });
 });

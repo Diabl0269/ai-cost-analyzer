@@ -1,14 +1,17 @@
 /**
- * Shared contract for Claude Cost Analyzer.
+ * Shared contract for AI Cost Analyzer.
  * Domain types (parser → cost engine → db) and API types (server → web).
  * Contributors may APPEND fields/types; never rename or remove one without a deliberate migration.
  */
 
 // ───────────────────────────── Discovery ─────────────────────────────
 
+export type Provider = 'claude' | 'codex';
+
 export type TranscriptKind = 'main' | 'subagent' | 'workflow-agent';
 
 export interface DiscoveredFile {
+  provider?: 'claude' | 'codex';
   path: string;
   size: number;
   mtimeMs: number;
@@ -41,6 +44,7 @@ export interface DiscoveredWorkflowRun {
 }
 
 export interface DiscoveredSession {
+  provider?: 'claude' | 'codex';
   projectDirName: string;
   projectDirPath: string;
   sessionId: string;
@@ -283,6 +287,8 @@ export interface ParsedApiError {
 }
 
 export interface TranscriptMeta {
+  /** Assistant output exists in a turn with no reported billing usage. */
+  usageIncomplete?: boolean;
   cwd?: string;
   gitBranch?: string;
   version?: string;
@@ -411,6 +417,8 @@ export interface ModelPrice extends TokenPrices {
   exact?: boolean;
   /** fast-mode prices when the model supports speed:"fast" */
   fast?: TokenPrices;
+  /** Full-request API premium when input context exceeds this token threshold. */
+  longContext?: { threshold: number; inputMultiplier: number; outputMultiplier: number };
   supportsUsGeo: boolean;
   /** heuristic characters per token for this tokenizer generation */
   charsPerToken: number;
@@ -476,6 +484,8 @@ export interface UserSettings {
 // ───────────────────────────── API ─────────────────────────────
 
 export interface RangeQuery {
+  /** Omitted means all providers. */
+  provider?: Provider;
   /** ISO date (YYYY-MM-DD) inclusive, local time */
   from?: string;
   to?: string;
@@ -485,6 +495,8 @@ export interface RangeQuery {
 }
 
 export interface StatusResponse {
+  /** Retained failure: totals may be incomplete until a full rebuild or rescan succeeds. */
+  indexError?: string;
   version: string;
   indexing: boolean;
   progress?: IndexProgress;
@@ -517,7 +529,7 @@ export interface IndexProgress {
 export type IndexEvent =
   | { type: 'progress'; progress: IndexProgress }
   | { type: 'sessionsChanged'; sessionIds: string[] }
-  | { type: 'indexed'; at: string }
+  | { type: 'indexed'; at: string; indexError?: string }
   | { type: 'error'; message: string }
   | { type: 'ping' };
 
@@ -583,6 +595,9 @@ export interface ModelCostRow {
 }
 
 export interface SessionSummary {
+  /** Recorded usage is incomplete; costs cover recorded tokens only. */
+  usageIncomplete?: boolean;
+  provider?: Provider;
   id: string;
   projectId: string;
   projectPath: string;
@@ -924,6 +939,8 @@ export interface Insight {
 }
 
 export interface OverviewResponse {
+  /** Incomplete transcripts with activity in the selected provider/project/date scope. */
+  usageCoverage?: { unavailableSessions: number; partialSessions: number };
   range: { from: string; to: string };
   totals: {
     cost: CostBreakdown;

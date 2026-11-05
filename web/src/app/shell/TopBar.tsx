@@ -1,7 +1,9 @@
-import { Link, useLocation } from 'react-router';
+import { useLocation } from 'react-router';
+import { Link } from '@/lib/navigation';
 import type { IndexProgress } from '@core/types';
 import { IconButton } from '@/components/IconButton';
 import { DateRange } from '@/components/DateRange';
+import { Select } from '@/components/Select';
 import { useDateRange } from '@/lib/range';
 import { GlobalSearch } from './GlobalSearch';
 import { ThemeToggle } from './ThemeToggle';
@@ -66,7 +68,7 @@ export function TopBar({
           aria-expanded={railExpanded}
         />
         <Link to="/" className={styles.wordmark}>
-          Claude Cost Analyzer
+          AI Cost Analyzer
         </Link>
       </div>
       <div className={styles.centre}>
@@ -74,6 +76,9 @@ export function TopBar({
         <GlobalSearch hideField={onSearchPage || Boolean(firstRun)} />
       </div>
       <div className={styles.right}>
+        <Select className={styles.provider} label="Provider" hideLabel value={range.provider ?? ''}
+          onChange={(value) => range.setProvider(value === 'claude' || value === 'codex' ? value : undefined)}
+          options={[{ value: '', label: 'All providers' }, { value: 'claude', label: 'Claude' }, { value: 'codex', label: 'Codex' }]} />
         {/* Below 720px this moves into the rail: see `LeftRail`'s range slot. */}
         {noRange || firstRun ? null : (
           <div className={styles.range}>

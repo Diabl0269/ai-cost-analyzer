@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from '@/lib/navigation';
 import type { OverviewResponse } from '@core/types';
 import { plural } from '@core/pricing/format.js';
 import { LedgerTable, Money, type LedgerColumn } from '@/components';

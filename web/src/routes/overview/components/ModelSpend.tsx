@@ -127,7 +127,7 @@ export function ModelSpend({ models, total, currency, headingId }: ModelSpendPro
     <ChartFrame
       summary={summary}
       {...(headingId
-        ? { heading: { id: headingId, text: 'Spend by model', note: 'exact, from each request\u2019s usage' } }
+        ? { heading: { id: headingId, text: 'Spend by model', note: 'recorded usage at API list prices' } }
         : {})}
       legend={<BarLegend segments={TOKEN_LEGEND} />}
       table={<LedgerTable columns={columns} rows={rows} rowKey={(row) => row.model} caption="Spend by model" dense />}

@@ -9,6 +9,7 @@ import {
   matchPreset,
   presetRange,
   rangeLabel,
+  sessionBounds,
 } from '../../web/src/lib/range.js';
 
 // The 20th of the month, so that `7d` and `month` are different windows: on the 7th they
@@ -125,5 +126,14 @@ describe('fillDailySeries', () => {
 
   it('survives an empty series', () => {
     expect(fillDailySeries([], undefined, undefined, empty)).toEqual([]);
+  });
+});
+
+
+describe('session list date defaults', () => {
+  it('matches the advertised 30 days while respecting explicit history bounds', () => {
+    expect(sessionBounds(undefined, undefined, NOW)).toEqual({ from: '2026-08-22', to: '2026-09-20' });
+    expect(sessionBounds('2000-01-01', '2026-09-20', NOW)).toEqual({ from: '2000-01-01', to: '2026-09-20' });
+    expect(sessionBounds('2026-09-01', undefined, NOW)).toEqual({ from: '2026-09-01', to: '2026-09-20' });
   });
 });

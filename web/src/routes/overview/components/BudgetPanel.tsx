@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import { Link } from '@/lib/navigation';
 import type { BudgetStatus } from '@core/types';
 import { plural } from '@core/pricing/format.js';
 import { Callout, Money } from '@/components';

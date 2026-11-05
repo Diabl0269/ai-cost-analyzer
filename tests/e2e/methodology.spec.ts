@@ -12,7 +12,7 @@ test.describe('methodology', () => {
     await openRoute(page, '/methodology');
 
     await expect(page.getByRole('heading', { level: 1, name: 'Methodology' })).toBeVisible();
-    await expect(page).toHaveTitle(/^Methodology · Claude Cost Analyzer$/);
+    await expect(page).toHaveTitle(/^Methodology · AI Cost Analyzer$/);
 
     // Section headings from the source file, each carrying the id the contents list links to.
     const first = page.getByRole('heading', { level: 2, name: /Where the data comes from/ });

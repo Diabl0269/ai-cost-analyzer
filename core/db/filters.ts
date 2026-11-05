@@ -63,6 +63,10 @@ export function sessionScope(
     );
     params.push(options.activeRange.from, options.activeRange.to);
   }
+  if (q.provider) {
+    clauses.push('s.provider = ?');
+    params.push(q.provider);
+  }
   if (q.project) {
     clauses.push('(s.projectId = ? OR p.path = ?)');
     params.push(q.project, q.project);

@@ -44,6 +44,18 @@ function basename(path: string): string {
  * run at the end of every index pass so incremental updates cannot leave a stale display path.
  */
 export function refreshProjects(db: DatabaseSync): void {
+  // A folder is shared across providers. Keep an existing Claude project id where possible so
+  // saved project links continue to work; never use the lossy directory encoding to merge paths.
+  const folders = db.prepare(`SELECT DISTINCT cwd FROM sessions WHERE cwd IS NOT NULL AND cwd != ''`).all() as Row[];
+  const canonical = db.prepare(`SELECT projectId FROM sessions WHERE cwd = ?
+    ORDER BY CASE WHEN provider = 'claude' THEN 0 ELSE 1 END, projectId LIMIT 1`);
+  const merge = db.prepare('UPDATE sessions SET projectId = ? WHERE cwd = ?');
+  for (const folder of folders) {
+    const cwd = str(folder, 'cwd');
+    const project = canonical.get(cwd) as Row | undefined;
+    if (project) merge.run(str(project, 'projectId'), cwd);
+  }
+
   const rows = db
     .prepare(
       `SELECT projectId, COALESCE(cwd, '') AS cwd, COUNT(*) AS n

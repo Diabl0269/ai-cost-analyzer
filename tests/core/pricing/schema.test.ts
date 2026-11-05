@@ -52,7 +52,7 @@ describe('pricingConfigSchema', () => {
 describe('settings', () => {
   it('ships sensible defaults', () => {
     const settings = defaultSettings();
-    expect(settings.roots).toEqual(['~/.claude/projects']);
+    expect(settings.roots).toEqual(['~/.claude/projects', '~/.codex/sessions', '~/.codex/archived_sessions']);
     expect(settings.theme).toBe('system');
     expect(settings.plan.preset).toBe('none');
     expect(settings.hideScratchProjects).toBe(true);

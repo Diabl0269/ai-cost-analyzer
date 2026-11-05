@@ -13,6 +13,8 @@ import type { WorkerMessage, RunMessage } from './worker.js';
 export type IndexMode = 'full' | 'rescan' | 'incremental';
 
 export interface IndexManagerStatus {
+  /** A successful incremental run does not repair an incomplete root scan. */
+  error?: string;
   indexing: boolean;
   progress?: IndexProgress;
   lastIndexedAt: string | null;
@@ -68,6 +70,7 @@ function spawnWorker(workerPath: string): Worker {
 }
 
 class IndexManagerImpl implements IndexManagerLike {
+  private error: string | undefined;
   private running = false;
   private runningMode: Mode | null = null;
   private currentWorker: Worker | null = null;
@@ -82,7 +85,7 @@ class IndexManagerImpl implements IndexManagerLike {
   }
 
   status(): IndexManagerStatus {
-    return { indexing: this.running, progress: this.progress, lastIndexedAt: this.lastIndexedAt };
+    return { indexing: this.running, progress: this.progress, lastIndexedAt: this.lastIndexedAt, error: this.error };
   }
 
   requestFull(): void {
@@ -166,12 +169,20 @@ class IndexManagerImpl implements IndexManagerLike {
     this.progress = undefined;
     if (msg.type === 'done') {
       if (mode) this.opts.onRunComplete?.(mode, msg.result);
+      if (msg.result.sessionsFailed) {
+        this.error = `${msg.result.sessionsFailed} session(s) could not be parsed. The index is incomplete; retry indexing all roots.`;
+        this.opts.broadcast({ type: 'error', message: this.error });
+        this.maybeStartPending();
+        return;
+      }
       this.lastIndexedAt = new Date().toISOString();
-      this.opts.broadcast({ type: 'indexed', at: this.lastIndexedAt });
+      if (mode === 'full' || mode === 'rescan') this.error = undefined;
+      this.opts.broadcast({ type: 'indexed', at: this.lastIndexedAt, ...(this.error ? { indexError: this.error } : {}) });
       if (msg.result.changedSessionIds.length > 0) {
         this.opts.broadcast({ type: 'sessionsChanged', sessionIds: msg.result.changedSessionIds });
       }
     } else {
+      this.error = msg.message;
       this.opts.broadcast({ type: 'error', message: msg.message });
     }
     this.maybeStartPending();

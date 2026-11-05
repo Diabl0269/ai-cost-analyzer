@@ -31,7 +31,7 @@ function dropBlock(text: string, tag: string): string {
  */
 export function cleanPrompt(text: string): string {
   if (!text) return '';
-  let rest = text;
+  let rest = text.replace(/(?<!!)\[([^\]\r\n]+)\]\((?:<[^>\r\n]+>|[^()\r\n]*(?:\([^()\r\n]*\)[^()\r\n]*)*)\)/g, '$1');
 
   const nameMatch = COMMAND_NAME.exec(rest);
   const commandName = nameMatch?.[1]?.trim().replace(/^\//, '');
@@ -51,6 +51,12 @@ export function cleanPrompt(text: string): string {
   parts.push(...args);
   parts.push(rest);
   return parts.join(' ').replace(/\s+/g, ' ').trim().slice(0, MAX_TITLE_CHARS);
+}
+
+/** Codex automation envelopes supply a task name; only complete leading metadata qualifies. */
+function titlePrompt(text: string): string {
+  const automation = /^\s*Automation:[ \t]+([^\r\n]+)\r?\n[ \t]*Automation ID:[ \t]*[^\r\n]+\r?\n[ \t]*Automation memory:[ \t]*[^\r\n]+(?:\r?\n|$)/.exec(text);
+  return cleanPrompt(automation?.[1] ?? text);
 }
 
 export interface TitleInput {
@@ -80,12 +86,12 @@ export function resolveTitle(input: TitleInput): ResolvedTitle {
     ['ai-title', input.aiTitle],
     ['agent-name', input.agentName],
     ['sessions-index', input.indexSummary],
-    ['first-prompt', input.firstPrompt === undefined ? undefined : cleanPrompt(input.firstPrompt)],
+    ['first-prompt', input.firstPrompt === undefined ? undefined : titlePrompt(input.firstPrompt)],
     ['slug', input.slug],
   ];
   for (const [source, value] of candidates) {
     const title = value?.trim().slice(0, MAX_TITLE_CHARS);
     if (title) return { title, source };
   }
-  return { title: input.sessionId.slice(0, 8), source: 'session-id' };
+  return { title: input.sessionId.startsWith('codex-') ? `Codex ${input.sessionId.slice('codex-'.length)}` : input.sessionId.slice(0, 8), source: 'session-id' };
 }

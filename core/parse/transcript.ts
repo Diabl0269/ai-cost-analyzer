@@ -137,7 +137,7 @@ interface ToolResultRecord {
   toolUseResult: unknown;
 }
 
-class Builder {
+export class Builder {
   readonly meta: TranscriptMeta = { lineCount: 0, parseErrors: 0 };
   readonly messages: ParsedMessage[] = [];
   readonly injections: ParsedInjection[] = [];

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from '@/lib/navigation';
 import type { AgentNode, WorkflowRunNode } from '@core/types';
 import { Duration } from '@/components/Duration';
 import { EmptyState } from '@/components/EmptyState';
@@ -155,6 +155,10 @@ export default function AgentsTab() {
       ),
     },
   ];
+
+  if (detail.summary.provider === 'codex' && rows.length === 0) {
+    return <EmptyState title="No linked agents recorded" description="No linked agent transcript was recorded for this rollout. Missing records do not mean no delegation occurred." />;
+  }
 
   if (rows.length === 0) {
     return (

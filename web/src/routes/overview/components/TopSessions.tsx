@@ -1,5 +1,7 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
+import { providerLabel } from '@/lib/provider';
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from '@/lib/navigation';
 import type { SessionSummary } from '@core/types';
 import { Duration, LedgerTable, ModelChip, Money, RelativeTime, type LedgerColumn } from '@/components';
 import type { CurrencyDisplay } from '@/lib/format';
@@ -21,7 +23,7 @@ export function TopSessions({ sessions, currency }: TopSessionsProps) {
         header: 'Session',
         width: '38%',
         sortValue: (row) => row.title,
-        cell: (row) => <span className="truncate">{row.title}</span>,
+        cell: (row) => <span className="truncate">{providerLabel(row.provider)} · {row.title}</span>,
       },
       {
         id: 'project',
@@ -70,7 +72,7 @@ export function TopSessions({ sessions, currency }: TopSessionsProps) {
         header: 'Cost',
         numeric: true,
         sortValue: (row) => row.cost.total,
-        cell: (row) => <Money usd={row.cost.total} currency={currency} />,
+        cell: (row) => hasNoRecordedUsage(row) ? <span>Unavailable</span> : <Money usd={row.cost.total} currency={currency} />,
       },
     ],
     [currency],

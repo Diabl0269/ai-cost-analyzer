@@ -1,5 +1,5 @@
 import { useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
-import { NavLink } from 'react-router';
+import { NavLink } from '@/lib/navigation';
 import styles from './Tabs.module.css';
 
 export interface TabItem {

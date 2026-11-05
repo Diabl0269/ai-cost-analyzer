@@ -130,7 +130,7 @@ export function CategorySplit({ categories, currency, topTools = 6, tokens }: Ca
       <div className={`${styles.receiptPanel} ${styles.exactPanel}`}>
         <div className="stack stack-sm">
           <div className={styles.receiptHead}>
-            <h3>Exact — by token class</h3>
+            <h3>API list prices — by token class</h3>
             <span className="ui-xs muted-2">from the API usage numbers</span>
           </div>
           <Receipt rows={exactRows} />

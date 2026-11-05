@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router';
+import { Link } from '@/lib/navigation';
 import type { Insight } from '@core/types';
 import { EmptyState, Kpi, Money, Skeleton } from '@/components';
 import { useCurrency } from '@/lib/currency';

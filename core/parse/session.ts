@@ -2,6 +2,7 @@
  * One `DiscoveredSession` → one `ParsedSession`: the main transcript, its subagents, its workflow
  * runs, and the side files (`agent-*.meta.json`, `journal.jsonl`, `custom-title.json`).
  */
+import { parseCodexTranscript } from '../codex/transcript.js';
 import { readFile } from 'node:fs/promises';
 import { readJsonlLines } from '../jsonl.js';
 import type {
@@ -16,12 +17,15 @@ import { asRecord, num, parseJson, str } from './raw.js';
 import { parseTranscript } from './transcript.js';
 
 export async function parseSession(d: DiscoveredSession): Promise<ParsedSession> {
-  const main = await parseTranscript(d.mainFile, { agentId: null });
+  const parse = d.provider === 'codex' || d.mainFile.provider === 'codex'
+    ? (file: DiscoveredFile, opts: { agentId: string | null }) => parseCodexTranscript(file, opts.agentId)
+    : parseTranscript;
+  const main = await parse(d.mainFile, { agentId: null });
 
   const agents: ParsedTranscript[] = [];
   const agentMeta: Record<string, AgentMeta> = {};
   for (const file of d.agentFiles) {
-    agents.push(await parseTranscript(file, { agentId: file.agentId ?? null }));
+    agents.push(await parse(file, { agentId: file.agentId ?? null }));
     await loadMeta(file, agentMeta);
   }
 
@@ -29,7 +33,7 @@ export async function parseSession(d: DiscoveredSession): Promise<ParsedSession>
   for (const run of d.workflowRuns) {
     const runAgents: ParsedTranscript[] = [];
     for (const file of run.agentFiles) {
-      runAgents.push(await parseTranscript(file, { agentId: file.agentId ?? null }));
+      runAgents.push(await parse(file, { agentId: file.agentId ?? null }));
       await loadMeta(file, agentMeta);
     }
     workflowRuns.push({

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
+import { Link } from '@/lib/navigation';
 import { plural } from '@core/pricing/format.js';
 import type { AgentNode, SessionDetail } from '@core/types';
 import { Callout } from '@/components/Callout';

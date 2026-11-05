@@ -5,7 +5,8 @@
  */
 import type { ModelPrice, PricingConfig, TokenPrices } from '../types.js';
 
-export const PRICING_SOURCE = 'platform.claude.com/docs/en/about-claude/pricing (2026-09-07)';
+export const OPENAI_PRICING_SOURCE = 'https://developers.openai.com/api/docs/pricing (2026-11-05)';
+export const PRICING_SOURCE = `platform.claude.com/docs/en/about-claude/pricing (2026-09-07); ${OPENAI_PRICING_SOURCE}`;
 
 const CPT_MODERN = 3.1;
 const CPT_LEGACY = 4.0;
@@ -16,6 +17,54 @@ function prices(input: number, output: number, w5: number, w1: number, read: num
 
 /** Fast mode on Opus-class models is billed at the Fable/Mythos rate card. */
 const FAST_OPUS: TokenPrices = prices(10, 50, 12.5, 20, 1);
+
+/** Published standard API prices only. Exact IDs prevent future variants inheriting a guessed price.
+ * Codex usage has no cache-write buckets; reasoning tokens are already included in output.
+ * The shared cache-write TTL fields are Claude-specific and stay zero for OpenAI.
+ */
+export function defaultOpenAIModels(): ModelPrice[] {
+  const rows: [string, number, number, number, number?, number?, number?][] = [
+    ['gpt-6-astra', 10, 50, 1, 20, 100, 2],
+    ['gpt-6.1-sol', 2, 10, 0.1, 4, 20, 0.2],
+    ['gpt-6.1-terra', 1, 5, 0.05, 2, 10, 0.1],
+    ['gpt-6-luna', 0.1, 0.5, 0.01, 0.2, 1, 0.02],
+    ['gpt-6-sol', 2, 10, 0.2, 4, 20, 0.4],
+    ['gpt-5.3-codex', 1.75, 14, 0.175, 3.5, 28, 0.35],
+    ['gpt-5.2', 1.75, 14, 0.175, 3.5, 28, 0.35],
+    ['gpt-5.1', 1.25, 10, 0.125, 2.5, 20, 0.25],
+    ['gpt-5', 1.25, 10, 0.125, 2.5, 20, 0.25],
+    ['gpt-5-mini', 0.25, 2, 0.025, 0.45, 3.6, 0.045],
+    ['gpt-5-nano', 0.05, 0.4, 0.005],
+    ['gpt-4.1', 2, 8, 0.5, 3.5, 14, 0.875],
+    ['gpt-4.1-mini', 0.4, 1.6, 0.1, 0.7, 2.8, 0.175],
+    ['gpt-4o', 2.5, 10, 1.25, 4.25, 17, 2.125],
+    ['gpt-4o-mini', 0.15, 0.6, 0.075, 0.25, 1, 0.125],
+    ['o3', 2, 8, 0.5, 3.5, 14, 0.875],
+  ];
+  return rows.map(([id, input, output, cached, fastInput, fastOutput, fastCached]) => ({
+    key: id,
+    label: id,
+    match: [id],
+    exact: true,
+    ...prices(input, output, 0, 0, cached),
+    ...(fastInput !== undefined && fastOutput !== undefined && fastCached !== undefined
+      ? { fast: prices(fastInput, fastOutput, 0, 0, fastCached) } : {}),
+    // GPT-6 model pages explicitly document a full-request >272K premium, including cache.
+    ...(id.startsWith('gpt-6') ? {
+      longContext: { threshold: 272_000, inputMultiplier: 2, outputMultiplier: 1.5 },
+    } : {}),
+    supportsUsGeo: false,
+    charsPerToken: CPT_LEGACY,
+    family: 'other',
+  }));
+}
+
+/** Add newly shipped OpenAI rows without replacing any saved prices or custom matches. */
+export function withDefaultOpenAIModels(config: PricingConfig): PricingConfig {
+  const additions = defaultOpenAIModels().filter((model) => !config.models.some((saved) =>
+    saved.key === model.key || saved.match.some((match) => model.match.includes(match))));
+  return additions.length ? { ...config, models: [...config.models, ...additions] } : config;
+}
 
 function defaultModels(): ModelPrice[] {
   return [
@@ -185,6 +234,7 @@ function defaultModels(): ModelPrice[] {
       charsPerToken: CPT_LEGACY,
       family: 'haiku',
     },
+    ...defaultOpenAIModels(),
     {
       key: 'synthetic',
       label: '(synthetic)',
@@ -201,7 +251,7 @@ function defaultModels(): ModelPrice[] {
 export function defaultPricing(): PricingConfig {
   return {
     version: 1,
-    updatedAt: '2026-09-07T00:00:00.000Z',
+    updatedAt: '2026-11-05T00:00:00.000Z',
     source: PRICING_SOURCE,
     models: defaultModels(),
     webSearchPer1000: 10,

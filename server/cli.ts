@@ -51,7 +51,7 @@ async function runReindexAndExit(flags: Flags): Promise<void> {
   const paths = resolvePaths({ home: flags.home });
   ensureHomeDir(paths.home);
   const config = ConfigStore.load(paths.configPath);
-  const roots = resolveRoots({ settingsRoots: config.get().settings.roots, claudeDirFlag: flags.claudeDir });
+  const roots = resolveRoots({ settingsRoots: config.get().settings.roots, claudeDirFlag: flags.claudeDir, codexDirFlag: flags.codexDir });
 
   const result = await runIndex({
     roots,
@@ -89,9 +89,10 @@ async function main(): Promise<void> {
     version: process.env.npm_package_version ?? readPackageVersion(import.meta.url),
     home: demoDirs?.home ?? flags.home,
     claudeDirFlag: demoDirs?.claudeDir ?? flags.claudeDir,
+    codexDirFlag: demoDirs ? '' : flags.codexDir,
   });
 
-  console.log(server.url);
+  console.log(`AI Cost Analyzer: ${server.url}`);
   if (flags.open) openBrowser(server.url);
 
   let shuttingDown = false;

@@ -54,7 +54,27 @@ function collectTranscripts(session: ParsedSession): TranscriptSlot[] {
   for (const [agentId, transcript] of Object.entries(session.main.embeddedAgents ?? {})) {
     slots.push({ transcript, agentId, runId: null });
   }
-  return slots.filter((slot) => slot.agentId !== MAIN_AGENT || slot.transcript === session.main);
+  const unique = new Map<string, TranscriptSlot>();
+  for (const slot of slots) {
+    if (slot.agentId === MAIN_AGENT && slot.transcript !== session.main) continue;
+    const key = JSON.stringify([slot.runId, slot.agentId]);
+    const previous = unique.get(key);
+    if (!previous) unique.set(key, slot);
+    else if (previous.transcript !== slot.transcript && previous.transcript.file.path !== slot.transcript.file.path) {
+      throw new Error('Conflicting transcripts share an agent id within one workflow scope');
+    }
+  }
+  const result = [...unique.values()];
+  const counts = new Map<string, number>();
+  for (const slot of result) counts.set(slot.agentId, (counts.get(slot.agentId) ?? 0) + 1);
+  for (const slot of result) {
+    // A workflow can reuse a plain agent's id, or another run's id. Keep both histories while
+    // preserving existing ids for the common case where the session has no such collision.
+    if (slot.runId !== null && (counts.get(slot.agentId) ?? 0) > 1) {
+      slot.agentId = `workflow-${Buffer.from(JSON.stringify([slot.runId, slot.agentId])).toString('base64url')}`;
+    }
+  }
+  return result;
 }
 
 function discoveredFilesOf(session: ParsedSession): DiscoveredFile[] {
@@ -106,8 +126,8 @@ export class SessionWriter {
         durationMs, activeMs, entrypoint, sessionKind, gitBranch, version, effort,
         promptCount, requestCount, toolCallCount, agentCount, workflowRunCount, compactionCount,
         apiErrorCount, hookRunCount, reportedCostUsd, reportedJson, continuedInSessionId, permissionMode,
-        prLinksJson, localCommandsJson, turnDurationsJson, modelsJson, filePath, lineCount
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`),
+        prLinksJson, localCommandsJson, turnDurationsJson, modelsJson, filePath, lineCount, provider, usageIncomplete
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`),
       insertSessionFts: db.prepare(
         'INSERT INTO sessions_fts (title, firstPrompt, projectPath, sessionId) VALUES (?,?,?,?)',
       ),
@@ -181,8 +201,14 @@ export class SessionWriter {
     const sessionId = session.discovered.sessionId;
     this.deleteSession(sessionId);
 
-    const projectId = session.discovered.projectDirName;
     const cwd = session.main.meta.cwd ?? '';
+    let projectId = session.discovered.projectDirName;
+    // Claude's directory encoding is lossy too. Preserve familiar IDs unless that ID already
+    // belongs to another exact folder, then use a reversible path key instead of merging them.
+    if (cwd) {
+      const collision = this.db.prepare('SELECT 1 FROM sessions WHERE projectId = ? AND cwd != ? LIMIT 1').get(projectId, cwd);
+      if (collision) projectId = `folder-${Buffer.from(cwd).toString('base64url')}`;
+    }
     this.statements['insertProject']?.run(
       projectId,
       projectId,
@@ -262,6 +288,8 @@ export class SessionWriter {
       JSON.stringify([...models]),
       session.discovered.mainFile.path,
       session.main.meta.lineCount,
+      session.discovered.provider ?? 'claude',
+      slots.some(slot => slot.transcript.meta.usageIncomplete) ? 1 : 0,
     );
     this.statements['insertSessionFts']?.run(title.title, firstPrompt, cwd || projectId, sessionId);
 
@@ -274,7 +302,7 @@ export class SessionWriter {
         file.mtimeMs,
         file.kind,
         sessionId,
-        file.agentId ?? MAIN_AGENT,
+        slots.find((slot) => slot.transcript.file.path === file.path && slot.runId === (file.runId ?? null))?.agentId ?? file.agentId ?? MAIN_AGENT,
         bind(file.runId),
         file.projectDirName,
         now,
@@ -299,7 +327,7 @@ export class SessionWriter {
 
     const sessionDate = localDateOf(startedAt);
     for (const slot of slots) {
-      this.writeTranscript(sessionId, slot, session, pricing, fileIds, sessionDate);
+      this.writeTranscript(sessionId, slot, session, pricing, fileIds, sessionDate, slots);
     }
   }
 
@@ -310,8 +338,12 @@ export class SessionWriter {
     pricing: PricingConfig,
     fileIds: ReadonlyMap<string, number>,
     sessionDate: string,
+    slots: readonly TranscriptSlot[],
   ): void {
     const { transcript: t, agentId } = slot;
+    const sourceAgentId = t.agentId ?? t.file.agentId ?? MAIN_AGENT;
+    const resolveAgentId = (id: string | undefined): string | undefined => id === undefined ? undefined
+      : slots.find((candidate) => candidate.runId === slot.runId && (candidate.transcript.agentId ?? candidate.transcript.file.agentId) === id)?.agentId ?? id;
     const attribution = attributeTranscript(t, pricing);
     const toolFacts = new Map<string, AttributedItem>();
     const contextFacts: AttributedItem[] = [];
@@ -332,12 +364,12 @@ export class SessionWriter {
     const injectionCursor = new Map<number, number>();
 
     if (agentId !== MAIN_AGENT) {
-      const meta = session.agentMeta[agentId] ?? {};
+      const meta = session.agentMeta[sourceAgentId] ?? {};
       this.statements['insertAgent']?.run(
         sessionId,
         agentId,
         bind(slot.runId),
-        bind(meta.parentAgentId),
+        bind(resolveAgentId(meta.parentAgentId)),
         bind(meta.toolUseId),
         bind(meta.agentType),
         bind(agentDescription(meta.description, t)),
@@ -442,7 +474,7 @@ export class SessionWriter {
         call.resultShape,
         bind(call.isError),
         call.resultPreview,
-        bind(call.childAgentId),
+        bind(resolveAgentId(call.childAgentId)),
         bind(call.childRunId),
         bind(call.childModel),
         bind(call.childDescription),

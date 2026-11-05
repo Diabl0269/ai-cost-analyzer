@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
+import { useNavigate } from '@/lib/navigation';
 import type { AgentNode, WorkflowRunNode } from '@core/types';
 import { Money } from '@/components/Money';
 import { Skeleton } from '@/components/Skeleton';
@@ -61,7 +62,7 @@ export function SessionRail({ sessionId }: { sessionId: string }) {
   }, [tree.data]);
 
   if (tree.isPending) return <Skeleton lines={3} height={10} />;
-  if (nodes.length === 0) return <p className={styles.empty}>This session delegated nothing — every request is in the main transcript.</p>;
+  if (nodes.length === 0) return <p className={styles.empty}>No linked subagent or workflow transcript recorded.</p>;
 
   return (
     <TreeNav

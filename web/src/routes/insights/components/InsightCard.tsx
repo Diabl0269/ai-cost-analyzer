@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import { Link } from '@/lib/navigation';
 import type { Insight } from '@core/types';
 import { Money } from '@/components';
 import type { CurrencyDisplay } from '@/lib/format';

@@ -95,6 +95,8 @@ function walk(dir, matcher, out, root) {
     return;
   }
   for (const entry of entries) {
+    // Git worktrees use a .git file containing a machine-local path.
+    if (entry.name === ".git") continue;
     const full = path.join(dir, entry.name);
     const rel = path.relative(root, full).split(path.sep).join("/");
     if (entry.isDirectory()) {

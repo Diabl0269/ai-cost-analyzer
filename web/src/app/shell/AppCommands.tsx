@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from '@/lib/navigation';
 import { CommandPalette, type Command } from '@/components/CommandPalette';
 import { ShortcutsDialog, type StaticShortcutGroup } from '@/components/ShortcutsDialog';
 import { useToast } from '@/components/Toast';

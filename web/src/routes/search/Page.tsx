@@ -1,5 +1,8 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
+import { providerLabel } from '@/lib/provider';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
+import { Link } from '@/lib/navigation';
 import { plural } from '@core/pricing/format.js';
 import type { MessageKind, SearchKind, SearchQuery, SearchScope } from '@core/types';
 import { Button } from '@/components/Button';
@@ -92,7 +95,7 @@ export default function SearchPage() {
   }, [text, q, write]);
 
   const query = useMemo<SearchQuery>(() => {
-    const built: SearchQuery = { q, scope, limit: 20 };
+    const built: SearchQuery = { ...range.query, q, scope, limit: 20 };
     if (range.query.from) built.from = range.query.from;
     if (range.query.to) built.to = range.query.to;
     if (range.query.project) built.project = range.query.project;
@@ -103,6 +106,8 @@ export default function SearchPage() {
     if (cursor) built.cursor = cursor;
     return built;
   }, [q, scope, range.query, kinds, model, tool, cursors]);
+
+  useEffect(() => setCursors([]), [range.provider]);
 
   const search = useSearch(query);
 
@@ -250,7 +255,7 @@ export default function SearchPage() {
         <EmptyState
           icon="search"
           title="Search your whole history"
-          description="Every prompt, answer, thinking block, tool call and tool result you have ever run through Claude Code, priced. Titles are matched as substrings; everything else is full-text."
+          description="Every prompt, answer, thinking block, tool call and tool result recorded by Claude Code or Codex, priced at API list rates. Titles are matched as substrings; everything else is full-text."
         />
       ) : search.isPending ? (
         <div className="stack">
@@ -276,10 +281,10 @@ export default function SearchPage() {
                 </Link>
                 {group.titleMatch ? <span className={styles.titleMatch}>title match</span> : null}
                 <span className={styles.groupMeta} title={group.session.projectPath}>
-                  {shortProjectPath(group.session.projectPath)}
+                  {providerLabel(group.session.provider)} · {shortProjectPath(group.session.projectPath)}
                 </span>
                 <RelativeTime value={group.session.startedAt} live={false} className={styles.groupMeta} />
-                <Money usd={group.session.cost.total} className={styles.groupCost} />
+                {hasNoRecordedUsage(group.session) ? <span className={styles.groupCost}>Cost unavailable</span> : <Money usd={group.session.cost.total} className={styles.groupCost} />}
               </header>
               {group.hits.length === 0 ? (
                 <p className={styles.noHits}>Matched on the title.</p>

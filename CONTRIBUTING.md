@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for looking at Claude Cost Analyzer. This is a local, single-user web app that reads Claude
+Thanks for looking at AI Cost Analyzer. This is a local, single-user web app that reads Claude
 Code transcripts from `~/.claude/projects` and prices every request, tool call, subagent, workflow,
 hook and harness injection at API list prices. The full design is `SPEC.md` (binding); the cost
 model is explained in `docs/METHODOLOGY.md`; per-module notes live in `docs/dev/*.md`.
@@ -102,7 +102,7 @@ session's comparison (`match`, `tally-includes-earlier-process`, `file-covers-mo
 
 ## Schema version bump = rebuild
 
-The DB is a rebuildable cache keyed by `PRAGMA user_version` (currently `SCHEMA_VERSION = 3`). A
+The DB is a rebuildable cache keyed by `PRAGMA user_version` (currently `SCHEMA_VERSION = 4`). A
 mismatch drops and recreates every table on next open — there are no migrations. Bump it whenever
 `core/db/schema.ts` changes shape.
 
@@ -128,3 +128,49 @@ mismatch drops and recreates every table on next open — there are no migration
    `~/.claude` or `~/.claude-cost-analyzer` during dev/test — use a scratch `CCA_HOME` and your own
    port, and stop every process you started.
 5. `node scripts/check-privacy.mjs` must exit 0 — no real names, paths, or transcript content.
+
+## Multiple AI tools
+
+`core/codex/` adapts Codex rollout files into the shared parser contract. Discovery records a
+provider (`claude` or `codex`), the index stores it on sessions, and `RangeQuery.provider` scopes
+all list/search/analytics/export queries. Missing provider means both. Shared projects merge by
+exact reported working directory, preserving Claude project IDs for existing links.
+
+Codex roots use `--codex-dir`, `CCA_CODEX_DIR`, or `CODEX_HOME`; archived rollouts are included.
+Keep dev/test roots explicit so no real local Codex sessions are indexed into test homes.
+No new dependencies are required. `ai-cost-analyzer` and the legacy `claude-cost-analyzer`
+executables use the same CLI. For mixed-source browser checks, set `CCA_E2E_CODEX_DIR` to
+`tests/fixtures/codex` and run `playwright test providers.spec.ts` after a build.
+
+The web navigation wrappers in `web/src/lib/navigation.tsx` preserve provider selection;
+`web/src/lib/provider.ts` owns parsing and URL propagation. Use these wrappers for internal
+links and navigation. `useDateRange` carries provider with date/project state to API queries.
+
+## Index completeness
+
+An indexing exception may leave completed sessions in the cache. The error is retained in the
+index manager, exposed as `/api/status.indexError`, and displayed as **Index incomplete** until
+a successful full rebuild or rescan. A successful incremental update cannot certify the whole
+index. Validate discovery versus indexed counts against real source roots before claiming a
+preview contains the user's history; a successful HTTP response proves only that the server runs.
+Codex sessions with assistant messages and no token telemetry display an unavailable cost.
+
+## Parser cache version and Codex prompts
+
+`core/codex/prompts.ts` recognizes complete leading AGENTS instructions, environment/browser
+context, and other harness envelopes. These remain readable as harness lines in the transcript;
+titles, prompt counts, and prompt search use the first actual request. Quoted instructions inside
+ordinary requests are preserved. Context-only sessions use a distinct identifier fallback.
+
+When those derived facts change, increment `PARSER_VERSION` in `core/db/indexer.ts`. A successful
+root scan marks that version in the existing meta table; a mismatch reparses unchanged files,
+refreshing titles and full-text search automatically. A failed whole-session parse cannot mark
+the upgrade complete or report the index as up to date. No schema change is needed.
+
+Data-page navigation carries provider, dates and project. Settings/document links carry only
+provider; page-specific filters and cursors are not global. The project tree deliberately drops
+the selected-project constraint when loading its navigation choices.
+
+The session ledger selects the richest column set fitting its measured container, including the
+project rail's space. Keep the Cost column visible at every supported width. Codex rows display
+readable model labels; full model IDs remain available in tooltips.

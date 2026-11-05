@@ -7,7 +7,7 @@
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import type { PricingConfig, UserSettings } from '../core/types.js';
-import { defaultPricing } from '../core/pricing/defaults.js';
+import { defaultPricing, withDefaultOpenAIModels } from '../core/pricing/defaults.js';
 import { pricingConfigSchema } from '../core/pricing/schema.js';
 import { defaultSettings, userSettingsSchema } from '../core/settings.js';
 import { ensureFileMode, ensureHomeDir } from './paths.js';
@@ -47,6 +47,7 @@ export class ConfigStore {
    * corruption so the server always has a usable configuration. */
   static load(configPath: string): ConfigStore {
     const warnings: ConfigLoadWarning[] = [];
+    let upgraded = false;
     let pricing: PricingConfig = defaultPricing();
     let settings: UserSettings = defaultSettings();
 
@@ -55,13 +56,18 @@ export class ConfigStore {
         const raw = parseConfigFile(readFileSync(configPath, 'utf8'));
         const pricingResult = pricingConfigSchema.safeParse(raw.pricing);
         if (pricingResult.success) {
-          pricing = pricingResult.data;
+          pricing = withDefaultOpenAIModels(pricingResult.data);
+          upgraded = pricing !== pricingResult.data;
         } else {
           warnings.push({ message: 'config.json pricing section is invalid; using defaults' });
         }
         const settingsResult = userSettingsSchema.safeParse(raw.settings);
         if (settingsResult.success) {
           settings = settingsResult.data;
+          if (settings.roots.length === 1 && settings.roots[0] === '~/.claude/projects') {
+            settings = { ...settings, roots: defaultSettings().roots };
+            upgraded = true;
+          }
         } else {
           warnings.push({ message: 'config.json settings section is invalid; using defaults' });
         }
@@ -71,7 +77,7 @@ export class ConfigStore {
     }
 
     const store = new ConfigStore(configPath, { pricing, settings }, warnings);
-    if (warnings.length > 0 || !existsSync(configPath)) {
+    if (upgraded || warnings.length > 0 || !existsSync(configPath)) {
       store.persist();
     }
     return store;

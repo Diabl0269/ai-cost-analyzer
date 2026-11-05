@@ -138,7 +138,7 @@ const REQUEST_SUMS = `SUM(r.input) AS input, SUM(r.output) AS output, SUM(r.cach
   SUM(r.cache5m) AS cache5m, SUM(r.cache1h) AS cache1h, SUM(r.cacheAssumed) AS cacheAssumed,
   SUM(r.thinking) AS thinking,
   SUM(r.webSearchRequests) AS webSearchRequests, SUM(r.webFetchRequests) AS webFetchRequests,
-  SUM(r.contextTokens) AS contextTokens, SUM(CASE WHEN r.iterIndex = 0 THEN 1 ELSE 0 END) AS requests,
+  r.contextTokens AS pricingContextTokens, SUM(r.contextTokens) AS contextTokens, SUM(CASE WHEN r.iterIndex = 0 THEN 1 ELSE 0 END) AS requests,
   COUNT(*) AS billedRequests`;
 
 export function modelRowsInRange(ctx: AnalyticsContext): ModelCostRow[] {
@@ -147,7 +147,7 @@ export function modelRowsInRange(ctx: AnalyticsContext): ModelCostRow[] {
       `SELECT r.model AS model, r.speed AS speed, r.serviceTier AS serviceTier,
         r.inferenceGeo AS inferenceGeo, ${REQUEST_SUMS}
        ${scopedSql(ctx.scope, 'requests', 'r')}
-       GROUP BY r.model, r.speed, r.serviceTier, r.inferenceGeo`,
+       GROUP BY r.model, r.speed, r.serviceTier, r.inferenceGeo, r.contextTokens`,
     )
     .all(...rangeParams(ctx)) as Row[];
   return groupModelRows(rows, ctx.resolve, ctx.pricing);
@@ -159,7 +159,7 @@ export function dailyPoints(ctx: AnalyticsContext): DailyPoint[] {
       `SELECT r.dateLocal AS dateLocal, r.model AS model, r.speed AS speed, r.serviceTier AS serviceTier,
         r.inferenceGeo AS inferenceGeo, COUNT(DISTINCT r.sessionId) AS sessions, ${REQUEST_SUMS}
        ${scopedSql(ctx.scope, 'requests', 'r')}
-       GROUP BY r.dateLocal, r.model, r.speed, r.serviceTier, r.inferenceGeo
+       GROUP BY r.dateLocal, r.model, r.speed, r.serviceTier, r.inferenceGeo, r.contextTokens
        ORDER BY r.dateLocal`,
     )
     .all(...rangeParams(ctx)) as Row[];
@@ -283,7 +283,7 @@ function childCostBySession(ctx: AnalyticsContext): Map<string, number> {
         r.serviceTier AS serviceTier, r.inferenceGeo AS inferenceGeo, ${REQUEST_SUMS}
        FROM requests r
        WHERE r.agentId <> '' AND r.sessionId IN (SELECT s.id FROM sessions s${ctx.scope.sql})
-       GROUP BY r.sessionId, r.agentId, r.model, r.speed, r.serviceTier, r.inferenceGeo`,
+       GROUP BY r.sessionId, r.agentId, r.model, r.speed, r.serviceTier, r.inferenceGeo, r.contextTokens`,
     )
     .all(...ctx.scope.params) as Row[];
   const byAgent = new Map<string, number>();
@@ -316,7 +316,7 @@ export function modelsAnalytics(ctx: AnalyticsContext): ModelsAnalyticsResponse 
       `SELECT r.dateLocal AS dateLocal, r.model AS model, r.speed AS speed, r.serviceTier AS serviceTier,
         r.inferenceGeo AS inferenceGeo, ${REQUEST_SUMS}
        ${scopedSql(ctx.scope, 'requests', 'r')}
-       GROUP BY r.dateLocal, r.model, r.speed, r.serviceTier, r.inferenceGeo
+       GROUP BY r.dateLocal, r.model, r.speed, r.serviceTier, r.inferenceGeo, r.contextTokens
        ORDER BY r.dateLocal`,
     )
     .all(...rangeParams(ctx)) as Row[];
@@ -462,7 +462,7 @@ export function attributionAnalytics(ctx: AnalyticsContext): AttributionAnalytic
         `SELECT r.${column} AS name, r.model AS model, r.speed AS speed, r.serviceTier AS serviceTier,
           r.inferenceGeo AS inferenceGeo, ${REQUEST_SUMS}
          ${scopedSql(ctx.scope, 'requests', 'r', ` AND r.${column} IS NOT NULL AND r.${column} <> ''`)}
-         GROUP BY r.${column}, r.model, r.speed, r.serviceTier, r.inferenceGeo`,
+         GROUP BY r.${column}, r.model, r.speed, r.serviceTier, r.inferenceGeo, r.contextTokens`,
       )
       .all(...params) as Row[];
     const byName = new Map<string, { name: string; requests: number; cost: number }>();
@@ -636,7 +636,7 @@ export function buildInsightsInput(ctx: AnalyticsContext, totalCost: number): In
       `SELECT r.sessionId AS sessionId, r.agentId AS agentId, r.model AS model, r.speed AS speed,
         r.serviceTier AS serviceTier, r.inferenceGeo AS inferenceGeo, ${REQUEST_SUMS}
        ${scopedSql(ctx.scope, 'requests', 'r')}
-       GROUP BY r.sessionId, r.agentId, r.model, r.speed, r.serviceTier, r.inferenceGeo`,
+       GROUP BY r.sessionId, r.agentId, r.model, r.speed, r.serviceTier, r.inferenceGeo, r.contextTokens`,
     )
     .all(...params) as Row[];
 

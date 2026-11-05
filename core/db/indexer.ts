@@ -10,10 +10,14 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { DiscoveredSession, IndexProgress, ParsedSession, PricingConfig } from '../types.js';
 import type { IndexResult, IndexerOptions } from '../store.js';
 import { defaultPricing } from '../pricing/defaults.js';
-import { META_LAST_INDEXED_AT, openDatabase, resetDatabase, setMeta } from './schema.js';
+import { META_LAST_INDEXED_AT, getMeta, openDatabase, resetDatabase, setMeta } from './schema.js';
 import { refreshProjects } from './projects.js';
 import { SessionWriter, fileSignature } from './write-session.js';
 import { str, num, type Row } from './rows.js';
+
+/** Bump when derived parser facts change even if transcript bytes and DB columns do not. */
+export const PARSER_VERSION = '3';
+export const META_PARSER_VERSION = 'parser_version';
 
 export interface IndexerRunOptions extends IndexerOptions {
   /** pricing is needed at index time only for `charsPerToken` in attribution */
@@ -94,6 +98,7 @@ async function indexPass(args: IndexPassArgs): Promise<IndexResult> {
     sessionsSkipped: 0,
     filesSeen: 0,
     parseErrors: 0,
+    sessionsFailed: 0,
     durationMs: 0,
     changedSessionIds: [],
   };
@@ -126,6 +131,7 @@ async function indexPass(args: IndexPassArgs): Promise<IndexResult> {
       parsed = await parse(discovered);
     } catch (error) {
       result.parseErrors += 1;
+      result.sessionsFailed = (result.sessionsFailed ?? 0) + 1;
       progress.update({
         phase: 'parse',
         message: `parse failed for one session (${(error as Error).name || 'Error'})`,
@@ -189,8 +195,9 @@ export async function runIndex(opts: IndexerRunOptions): Promise<IndexResult> {
       pricing: opts.pricing ?? defaultPricing(),
       progress,
       ...(opts.signal ? { signal: opts.signal } : {}),
-      force: opts.full === true,
+      force: opts.full === true || getMeta(db, META_PARSER_VERSION) !== PARSER_VERSION,
     });
+    if (!opts.signal?.aborted && !result.sessionsFailed) setMeta(db, META_PARSER_VERSION, PARSER_VERSION);
     result.changedSessionIds.push(...stale);
     return result;
   } finally {
@@ -205,6 +212,8 @@ export async function runIndex(opts: IndexerRunOptions): Promise<IndexResult> {
 export async function indexChangedFiles(paths: string[], opts: IndexerRunOptions): Promise<IndexResult> {
   const db = openDatabase(opts.dbPath);
   try {
+    // A watcher must not leave untouched sessions with stale titles/search facts after an upgrade.
+    if (getMeta(db, META_PARSER_VERSION) !== PARSER_VERSION) return await runIndex(opts);
     const progress = new Progress(opts.onProgress);
     progress.update({ phase: 'discover' });
     const discover = await loadDiscover(opts);

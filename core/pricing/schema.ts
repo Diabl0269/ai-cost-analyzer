@@ -38,6 +38,11 @@ export const modelPriceSchema = z.object({
   cacheWrite1h: nonNegative,
   cacheRead: nonNegative,
   fast: tokenPricesSchema.optional(),
+  longContext: z.object({
+    threshold: z.number().int().min(0),
+    inputMultiplier: positive,
+    outputMultiplier: positive,
+  }).optional(),
   supportsUsGeo: z.boolean(),
   charsPerToken: positive,
   family: modelFamilySchema,

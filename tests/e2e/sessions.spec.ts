@@ -100,6 +100,8 @@ test.describe('sessions', () => {
    * ("479 ⚇5"), which broke the right edge of that column on the rows that had one.
    */
   test('each figure has its own column, and an auto title carries no badge', async ({ page }) => {
+    // The complete column set needs enough measured space beside the project rail.
+    await page.setViewportSize({ width: 1800, height: 900 });
     await openRoute(page, `/sessions?${ALL_TIME}`);
     for (const header of ['Started', 'Duration', 'Prompts', 'Requests', 'Tools', 'Agents', 'Cost']) {
       await expect(page.getByRole('columnheader', { name: new RegExp(`^${header}$`) })).toBeVisible();

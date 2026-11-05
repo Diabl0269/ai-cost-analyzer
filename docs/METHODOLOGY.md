@@ -1,4 +1,4 @@
-# How Claude Cost Analyzer computes costs
+# How AI Cost Analyzer computes costs
 
 Every number in the app is one of two kinds, and the UI always says which:
 
@@ -197,3 +197,43 @@ The month-end forecast is linear: spend so far ÷ days elapsed × days in month.
 - Volume discounts, credits, and enterprise contracts. Enter your effective prices in Settings if yours
   differ from list.
 - Conversations whose transcripts were deleted or trimmed by Claude Code cleanup are gone from the data.
+
+## Codex rollout accounting
+
+Codex is normalized to the same token, request, tool, transcript, search, and export contracts.
+A Codex input total includes cached tokens: uncached input is `input_tokens - cached_input_tokens`
+(clamped at zero). Reasoning tokens are a subset of output and are never billed a second time.
+Repeated cumulative token-count notifications do not create another billed request. Prices are
+read-time API list-price estimates, not the amount charged by a ChatGPT subscription. Missing
+usage and unknown models must not be filled with guessed costs. OpenAI default price entries cite
+[official OpenAI pricing](https://developers.openai.com/api/docs/pricing); user overrides still win.
+
+Provider filtering applies before aggregation. A project represents an exact reported working
+folder across Claude Code and Codex; provider-specific session IDs prevent cross-tool collisions.
+Claude hook/workflow and reported-tally features rely on Claude metadata and do not imply that
+Codex records those same facts.
+
+Published GPT-6 long-context premiums apply per request above 272,000 input tokens (cached
+input included): input/cache rates double and output rates multiply by 1.5. Aggregation preserves
+each request's context size before pricing, so many short requests never trigger a long-context
+premium. Unsupported tariffs/models remain unpriced; hidden service charges and inherited fork
+history are not inferred from rollout content. For those cases the recorded-token view is not a
+complete billing ledger.
+
+A rollout may preserve assistant/tool text without recording token usage. Such a session is
+readable and searchable but does not establish a zero-dollar bill: its cost is unavailable.
+Historical activity can also lie outside the default 30-day view; select All to inspect it.
+
+
+Session CSV exports append `costStatus`, `usageIncomplete`, and `unpriced`. `recorded` means
+all recorded usage has known prices; `partial` preserves known subtotals while flagging missing
+usage or unknown model prices. `unavailable` means missing telemetry established no billed
+request; `unpriced` means no known cost could be calculated for unknown models. Calculated USD
+cells are blank for `unavailable` and wholly `unpriced` rows, rather than implying free usage.
+A separately reported provider cost remains in `reportedCostUsd` when present.
+
+The overview also reports incomplete-session coverage in the selected provider, project and date
+scope. Sessions without token records are counted from their transcript activity rather than
+excluded for having no request rows. Their presence is shown explicitly, even when no cost can be
+computed for the range. Injected Codex instructions do not count as human prompts; this changes
+prompt-based ratios but does not change recorded token totals.

@@ -19,7 +19,7 @@ test.describe('insights', () => {
     const problems = watchForProblems(page);
     await openRoute(page, '/insights?from=2000-01-01&to=2100-01-01');
     await expect(page.getByRole('heading', { level: 1, name: 'Insights' })).toBeVisible();
-    await expect(page).toHaveTitle(/^Insights · Claude Cost Analyzer$/);
+    await expect(page).toHaveTitle(/^Insights · AI Cost Analyzer$/);
 
     await expect(page.getByText('Findings', { exact: true })).toBeVisible();
 

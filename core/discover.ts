@@ -8,6 +8,7 @@
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { CodexScan, isCodexRoot } from './codex/discover.js';
 import { readJsonlLines } from './jsonl.js';
 import type {
   DiscoveredFile,
@@ -50,9 +51,19 @@ export async function discoverSessions(roots: string[]): Promise<DiscoveredSessi
 
 export async function discoverSessionsWithWarnings(roots: string[]): Promise<DiscoveryResult> {
   const ctx = new Scan();
+  const codex = new CodexScan();
+  const seenRoots = new Set<string>();
   for (const root of roots) {
-    await ctx.scanRoot(path.resolve(expandHome(root)));
+    const resolved = path.resolve(expandHome(root));
+    let canonical = resolved;
+    try { canonical = await realpath(resolved); } catch { /* scan reports unreadable roots */ }
+    if (seenRoots.has(canonical)) continue;
+    seenRoots.add(canonical);
+    if (await isCodexRoot(resolved)) await codex.scan(resolved);
+    else await ctx.scanRoot(resolved);
   }
+  ctx.sessions.push(...codex.finish());
+  ctx.warnings.push(...codex.warnings);
   // Code-point ordering, not `localeCompare`: discovery order must not depend on the host locale.
   ctx.sessions.sort((a, b) =>
     a.projectDirName === b.projectDirName
@@ -71,6 +82,7 @@ interface SessionDirContents {
 class Scan {
   readonly sessions: DiscoveredSession[] = [];
   readonly warnings: DiscoveryWarning[] = [];
+  private readonly projects = new Set<string>();
 
   warn(p: string, err: unknown): void {
     this.warnings.push({ path: p, message: err instanceof Error ? err.message : String(err) });
@@ -125,6 +137,11 @@ class Scan {
   }
 
   async scanProject(projectDirPath: string, projectDirName: string): Promise<void> {
+    try {
+      const canonical = await realpath(projectDirPath);
+      if (this.projects.has(canonical)) return;
+      this.projects.add(canonical);
+    } catch { /* listing below reports the failure */ }
     const listing = await this.list(projectDirPath);
     if (!listing) return;
 

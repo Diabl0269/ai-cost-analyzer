@@ -25,7 +25,7 @@ test.describe('overview', () => {
     await openRoute(page, '/');
 
     await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
-    await expect(page).toHaveTitle(/^Overview · Claude Cost Analyzer$/);
+    await expect(page).toHaveTitle(/^Overview · AI Cost Analyzer$/);
 
     if (!(await hasData(page))) {
       await expect(page.getByText('Nothing billed in this range')).toBeVisible();

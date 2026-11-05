@@ -84,6 +84,8 @@ export interface IndexResult {
   sessionsSkipped: number;
   filesSeen: number;
   parseErrors: number;
+  /** Whole sessions that could not be parsed, distinct from tolerated malformed lines. */
+  sessionsFailed?: number;
   durationMs: number;
   changedSessionIds: string[];
 }

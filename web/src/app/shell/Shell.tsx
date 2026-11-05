@@ -5,12 +5,14 @@ import { useIndexEventStream, useStatus } from '@/lib/queries';
 import { RailSlotContext, type RailSlotApi } from './rail';
 import { AppCommands } from './AppCommands';
 import { FirstRun } from './FirstRun';
+import { Callout } from '@/components/Callout';
 import { LeftRail } from './LeftRail';
 import { TopBar } from './TopBar';
 import styles from './Shell.module.css';
+import { useDateRange } from '@/lib/range';
 
 const RAIL_STORAGE_KEY = 'cca.rail';
-const APP_NAME = 'Claude Cost Analyzer';
+const APP_NAME = 'AI Cost Analyzer';
 
 /**
  * The routes that are worth reading with an empty index: Settings (where the root is
@@ -43,6 +45,7 @@ function readCollapsed(): boolean {
 /** Application frame: top bar, rail, main landmark, palette, focus and title handling. */
 export function Shell() {
   const location = useLocation();
+  const range = useDateRange();
   const matches = useMatches();
   const mainRef = useRef<HTMLElement | null>(null);
   const lastPath = useRef<string | null>(null);
@@ -51,16 +54,17 @@ export function Shell() {
   const [railContent, setRailContent] = useState<ReactNode | null>(null);
   const [progress, setProgress] = useState<IndexProgress | null>(null);
   const [lastIndexedAt, setLastIndexedAt] = useState<string | null>(null);
-  const [indexError, setIndexError] = useState<string | null>(null);
+  const [indexError, setIndexError] = useState<string | null | undefined>(undefined);
   const status = useStatus();
+  const visibleIndexError = indexError === undefined ? status.data?.indexError : indexError;
 
   const onIndexEvent = useCallback((event: IndexEvent) => {
     switch (event.type) {
       case 'progress':
         setProgress(event.progress.phase === 'done' ? null : event.progress);
-        setIndexError(null);
         break;
       case 'indexed':
+        setIndexError(event.indexError ?? null);
         setProgress(null);
         setLastIndexedAt(event.at);
         break;
@@ -142,7 +146,7 @@ export function Shell() {
           connected={stream.connected}
           sessionCount={status.data?.counts?.sessions}
           scratchSessions={status.data?.scratchSessions}
-          indexError={indexError}
+          indexError={visibleIndexError}
           roots={status.data?.roots}
           statusResolved={statusResolved}
           firstRun={firstRun}
@@ -157,6 +161,8 @@ export function Shell() {
           />
           {drawerOpen ? <button type="button" className={styles.drawerScrim} aria-label="Close navigation" onClick={() => setDrawerOpen(false)} /> : null}
           <main id="main" className={styles.main} ref={mainRef}>
+            {visibleIndexError ? <Callout tone="warn" title="Index incomplete">{visibleIndexError} Totals cover only the indexed files. Re-index all roots in Settings to retry.</Callout> : null}
+            {!firstRun && range.provider !== 'claude' ? <p className="ui-xs muted" role="note">Codex amounts are API-price estimates, not your subscription bill. Claude-only attribution is unavailable for Codex.</p> : null}
             {showFirstRun ? <FirstRun roots={status.data?.roots ?? []} /> : <Outlet />}
           </main>
         </div>

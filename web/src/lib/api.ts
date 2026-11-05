@@ -164,6 +164,7 @@ const range = (query: RangeQuery | undefined): Record<string, QueryValue> => ({
   from: query?.from,
   to: query?.to,
   project: query?.project,
+  provider: query?.provider,
   whatIf: query?.whatIf,
 });
 

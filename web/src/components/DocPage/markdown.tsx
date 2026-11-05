@@ -9,7 +9,7 @@
  * which is the right failure mode for a document we ship ourselves.
  */
 import { Fragment, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link } from '../../lib/navigation.js';
 
 export type MarkdownBlock =
   | { kind: 'heading'; level: 1 | 2 | 3 | 4 | 5 | 6; text: string; slug: string }

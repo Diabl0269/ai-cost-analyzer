@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import { Link } from '@/lib/navigation';
 import { plural } from '@core/pricing/format.js';
 import type { RequestCost, ToolCallCost } from '@core/types';
 import { EstimateBadge } from '@/components/EstimateBadge';

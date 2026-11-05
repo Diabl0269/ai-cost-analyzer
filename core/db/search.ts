@@ -61,6 +61,10 @@ function contentWhere(
     clauses.push("(' ' || COALESCE(m.toolNames, '') || ' ') LIKE ?");
     params.push(`% ${q.tool} %`);
   }
+  if (q.provider) {
+    clauses.push('s.provider = ?');
+    params.push(q.provider);
+  }
   if (q.project) {
     clauses.push('(s.projectId = ? OR p.path = ?)');
     params.push(q.project, q.project);

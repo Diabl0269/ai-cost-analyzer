@@ -112,7 +112,7 @@ GitHub renders **GIFs inline** in a README and does not play mp4/webm there, so 
 with the GIF and links the video files:
 
 ```md
-![Claude Cost Analyzer — a 28-second tour](docs/demo/demo.gif)
+![AI Cost Analyzer — a 28-second tour](docs/demo/demo.gif)
 
 Full narrated tour (94 s): [demo.mp4](docs/demo/demo.mp4) · [demo.webm](docs/demo/demo.webm) ·
 [narration script](docs/demo/narration.txt)

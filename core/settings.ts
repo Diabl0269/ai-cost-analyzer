@@ -25,7 +25,7 @@ export const DEFAULT_ROOT = '~/.claude/projects';
 export function defaultSettings(): UserSettings {
   return {
     version: 1,
-    roots: [DEFAULT_ROOT],
+    roots: [DEFAULT_ROOT, '~/.codex/sessions', '~/.codex/archived_sessions'],
     theme: 'system',
     plan: { preset: 'none', monthlyUsd: 0, label: PLAN_PRESETS.none.label },
     monthlyBudgetUsd: null,

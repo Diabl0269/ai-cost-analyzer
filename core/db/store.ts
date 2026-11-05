@@ -588,6 +588,16 @@ class SqliteStore implements Store {
     const { cost, tokens, requests } = totalsFromModelRows(byModel);
     const counts = rangeCounts(analytics);
     const daily = dailyPoints(analytics);
+    // Sessions without usage have no request rows, so the ordinary analytics scope omits them.
+    const coverageScope = sessionScope(q, ctx.settings);
+    const coverage = this.db.prepare(`SELECT
+        SUM(CASE WHEN s.requestCount = 0 THEN 1 ELSE 0 END) AS unavailable,
+        SUM(CASE WHEN s.requestCount > 0 THEN 1 ELSE 0 END) AS partial
+      FROM sessions s WHERE s.usageIncomplete = 1
+        AND s.id IN (SELECT s.id FROM sessions s${coverageScope.sql})
+        AND (s.startedDate BETWEEN ? AND ? OR EXISTS (
+          SELECT 1 FROM messages m WHERE m.sessionId = s.id AND m.dateLocal BETWEEN ? AND ?))`)
+      .get(...coverageScope.params, analytics.range.from, analytics.range.to, analytics.range.from, analytics.range.to) as Row;
 
     // Range-scoped on purpose: the table is captioned "in the selected range", and whole-session
     // costs there could sum to more than the range total (182 % on a one-day window).
@@ -622,11 +632,12 @@ class SqliteStore implements Store {
       .filter((row) => row.sessions > 0 || row.requests > 0 || row.cost !== 0)
       .sort((a, b) => b.cost - a.cost);
 
-    const monthlyDaily = this.monthlyDaily(ctx, analytics.resolve);
+    const monthlyDaily = this.monthlyDaily(ctx, analytics.resolve, q);
     const insightsInput = buildInsightsInput(analytics, cost.total);
 
     return {
       range: analytics.range,
+      usageCoverage: { unavailableSessions: num(coverage, 'unavailable'), partialSessions: num(coverage, 'partial') },
       totals: {
         cost,
         tokens,
@@ -646,25 +657,26 @@ class SqliteStore implements Store {
       plan: planComparison(daily, ctx.settings),
       budget: budgetStatus(monthlyDaily, ctx.settings, nowOf(ctx)),
       insights: computeInsights(insightsInput, ctx).slice(0, 5),
-      unpricedModels: (await this.status(ctx)).unpricedModels,
+      unpricedModels: byModel.filter(row => row.unpriced).map(row => row.model),
     };
   }
 
   /** Daily costs for the calendar month containing `now`, independent of the selected range. */
-  private monthlyDaily(ctx: QueryContext, resolve: PriceResolver): { date: string; cost: number }[] {
+  private monthlyDaily(ctx: QueryContext, resolve: PriceResolver, q: RangeQuery): { date: string; cost: number }[] {
     const now = nowOf(ctx);
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const providerScope = sessionScope({ provider: q.provider }, ctx.settings, { includeHidden: true });
     const rows = this.db
       .prepare(
         `SELECT dateLocal, model, speed, serviceTier, inferenceGeo,
           SUM(input) AS input, SUM(output) AS output, SUM(cacheRead) AS cacheRead, SUM(cache5m) AS cache5m,
           SUM(cache1h) AS cache1h, SUM(cacheAssumed) AS cacheAssumed, SUM(thinking) AS thinking,
           SUM(webSearchRequests) AS webSearchRequests,
-          SUM(webFetchRequests) AS webFetchRequests, SUM(contextTokens) AS contextTokens
-         FROM requests WHERE dateLocal LIKE ?
-         GROUP BY dateLocal, model, speed, serviceTier, inferenceGeo`,
+          SUM(webFetchRequests) AS webFetchRequests, contextTokens AS pricingContextTokens, SUM(contextTokens) AS contextTokens
+         FROM requests WHERE dateLocal LIKE ? AND sessionId IN (SELECT s.id FROM sessions s${providerScope.sql})
+         GROUP BY dateLocal, model, speed, serviceTier, inferenceGeo, contextTokens`,
       )
-      .all(`${month}-%`) as Row[];
+      .all(`${month}-%`, ...providerScope.params) as Row[];
     const byDate = new Map<string, number>();
     for (const row of rows) {
       const resolved = resolve(str(row, 'model'), flagsOf(row));

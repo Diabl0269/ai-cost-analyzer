@@ -1,7 +1,9 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { Link } from '@/lib/navigation';
 import { plural } from '@core/pricing/format.js';
 import type { ModelCostRow, RequestCost } from '@core/types';
+import { EmptyState } from '@/components/EmptyState';
 import { Callout } from '@/components/Callout';
 import { ContextStrip, type ContextSegment } from '@/components/ContextStrip';
 import { CostWaterfall, type WaterfallDatum } from '@/components/CostWaterfall';
@@ -143,7 +145,7 @@ export default function SummaryTab() {
     });
     rows.push({
       id: 'exact',
-      label: 'Exact session total',
+      label: summary.provider === 'codex' ? 'Session total (API-price estimate)' : 'Exact session total',
       value: <Money usd={summary.cost.total} />,
       emphasis: 'total',
     });
@@ -153,19 +155,23 @@ export default function SummaryTab() {
   const reported = detail.facts.reported;
   const comparison = detail.facts.reportedComparison;
 
+  if (hasNoRecordedUsage(summary)) {
+    return <EmptyState title="Token usage unavailable" description="This transcript has no recorded token usage, so its cost and cost breakdown are unavailable. You can still read its transcript and recorded tool calls." />;
+  }
+
   return (
     <div className="stack stack-lg">
       <section className={styles.receipts}>
         <div className="panel panel-pad">
           <Receipt
-            caption="Receipt — exact"
+            caption={summary.provider === 'codex' ? 'Receipt — API-price estimate' : 'Receipt — exact'}
             rows={[
               ...toReceiptRows(exactAmounts(summary.cost), (amount) => <Money usd={amount} />),
               { id: 'total', label: 'Session total', value: <Money usd={summary.cost.total} display />, emphasis: 'total' },
             ]}
             footer={
               <span className={styles.footNote}>
-                Every line comes from the API usage numbers in the transcript — no estimation.
+                {summary.provider === 'codex' ? 'Recorded token counts priced at API list rates. This is not your subscription bill.' : 'Every line comes from the API usage numbers in the transcript — no estimation.'}
               </span>
             }
           />
@@ -182,7 +188,7 @@ export default function SummaryTab() {
               { id: 'total', label: 'Session total', value: <Money usd={summary.cost.total} />, emphasis: 'total' },
             ]}
           />
-          {reported ? (
+          {summary.provider === 'codex' ? <p className={styles.tallyNote}>Codex does not report a Claude Code cost-state tally. API list-price estimates cannot be reconciled with a subscription bill.</p> : reported ? (
             <div className={styles.tally}>
               <Receipt
                 dense
@@ -212,7 +218,7 @@ export default function SummaryTab() {
       <section className="stack stack-sm">
         <div className="section-head">
           <h2>By model</h2>
-          <span className={styles.note}>Exact, per billed request</span>
+          <span className={styles.note}>Per recorded request, at API list prices</span>
         </div>
         <LedgerTable
           columns={modelColumns}
@@ -335,7 +341,7 @@ export default function SummaryTab() {
           </div>
           <div className="panel panel-pad stack stack-sm">
             {detail.compactions.length === 0 ? (
-              <p className={styles.note}>No compaction — the context never had to be rebuilt.</p>
+              <p className={styles.note}>No compaction recorded in this transcript.</p>
             ) : (
               detail.compactions.map((compaction) => (
                 <div key={`${compaction.agentId ?? 'main'}-${compaction.seq}`} className={styles.compaction}>

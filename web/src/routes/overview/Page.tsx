@@ -1,8 +1,9 @@
 import { useMemo, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link } from '@/lib/navigation';
 import type { OverviewResponse, RangeQuery } from '@core/types';
 import { plural } from '@core/pricing/format.js';
 import {
+  Button,
   Callout,
   ChartFrame,
   EmptyState,
@@ -77,6 +78,9 @@ export default function OverviewPage() {
   const comparison = previousBounds && previous.data ? previous.data.totals : null;
 
   const totals = overview.data?.totals;
+  const missingUsage = overview.data?.usageCoverage;
+  const unavailableSessions = missingUsage?.unavailableSessions ?? 0;
+  const partialSessions = missingUsage?.partialSessions ?? 0;
 
   /**
    * Whether a percentage against the previous window means anything at all. Judged on spend,
@@ -192,7 +196,7 @@ export default function OverviewPage() {
         title="Overview"
         lead={
           <>
-            {`${rangeSentence} · everything Claude Code did in that window, priced at list rates.`}
+            {`${rangeSentence} · recorded Claude Code and Codex usage, priced at API list rates.`}
             {priorComparable && previousBounds
               ? ` Compared with ${formatRangeSentence(previousBounds.from, previousBounds.to)}.`
               : ''}
@@ -207,16 +211,24 @@ export default function OverviewPage() {
 
       {overview.isPending ? <OverviewSkeleton /> : null}
 
+      {unavailableSessions + partialSessions > 0 ? (
+        <Callout tone="warn" title="Some token usage is missing" action={<Link to="/sessions">Review sessions</Link>}>
+          {unavailableSessions > 0 ? `${plural(unavailableSessions, 'session')} without recorded token usage. ` : ''}
+          {partialSessions > 0 ? `${plural(partialSessions, 'session')} with incomplete token usage. ` : ''}
+          Totals cover recorded tokens only; unavailable costs are not zero-dollar usage.
+        </Callout>
+      ) : null}
+
       {overview.data && totals ? (
         totals.requests === 0 ? (
           <EmptyState
-            title="Nothing billed in this range"
-            description={`No API request between ${rangeSentence}. Widen the date range, or clear the project filter.`}
+            title={unavailableSessions > 0 ? "Token usage unavailable in this range" : "Nothing billed in this range"}
+            description={`No priced usage recorded between ${rangeSentence}. Your history may be outside this range; some transcripts may also have no token usage.`}
             icon="overview"
             action={
-              <LinkButton to="/" variant="secondary">
-                Reset the range
-              </LinkButton>
+              <Button onClick={() => range.setPreset('all')} variant="secondary">
+                Show all history
+              </Button>
             }
           />
         ) : (
@@ -239,7 +251,7 @@ export default function OverviewPage() {
                 value={<Money usd={totals.cost.total} currency={currency} display />}
                 {...compare(totals.cost.total, comparison?.cost.total, 'down', asMoney)}
                 note={spendNote}
-                hint="Exact: every billed request in range, at the configured list prices."
+                hint="Recorded tokens at the configured list prices. Missing usage and unpriced charges are excluded; subscription charges may differ."
               />
               <Kpi
                 label="Requests"

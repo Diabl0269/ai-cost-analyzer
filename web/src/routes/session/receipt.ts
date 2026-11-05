@@ -1,3 +1,4 @@
+import { hasNoRecordedUsage } from '@/lib/usage';
 /**
  * Receipt construction, shared by the Summary tab and the "copy as Markdown" action so the
  * clipboard and the screen can never disagree.
@@ -29,6 +30,7 @@ export function exactAmounts(cost: CostBreakdown): LabelledAmount[] {
 /** Main transcript vs delegated work. Child costs are never folded into the parent. */
 export function delegationAmounts(detail: SessionDetail): LabelledAmount[] {
   const { summary } = detail;
+  if (summary.provider === 'codex' && summary.agentCount === 0) return [{ id: 'main', label: 'Recorded transcript (no linked agent transcript)', amount: summary.costMain }];
   return [
     { id: 'main', label: 'This transcript', amount: summary.costMain },
     { id: 'agents', label: `Subagents (${formatCount(summary.agentCount)})`, amount: summary.costAgents },
@@ -162,11 +164,17 @@ export function markdownReceipt(detail: SessionDetail): string {
   lines.push(`# ${summary.title}`, '');
   lines.push(`- Session: \`${summary.id}\``);
   lines.push(`- Project: ${summary.projectPath}`);
+  if (summary.provider === 'codex') lines.push('- Provider: Codex. Amounts are API-price estimates, not your subscription bill. Claude Code hook, skill and workflow attribution is unavailable.');
+  if (summary.usageIncomplete) lines.push('- Usage incomplete — totals cover recorded tokens only.');
   lines.push(`- Started: ${formatDate(summary.startedAt, 'datetime')}`);
   lines.push(`- Duration: ${formatDuration(summary.durationMs)} (active ${formatDuration(summary.activeMs)})`);
   lines.push(`- Prompts: ${formatCount(summary.promptCount)} · Requests: ${formatCount(summary.requestCount)} · Tool calls: ${formatCount(summary.toolCallCount)}`);
   lines.push('');
-  lines.push('## Receipt (exact)', '');
+  if (hasNoRecordedUsage(summary)) {
+    lines.push('Cost unavailable: this transcript has no recorded token usage. A zero-dollar total would be misleading.');
+    return lines.join('\n');
+  }
+  lines.push(summary.provider === 'codex' ? '## Receipt (API-price estimate)' : '## Receipt (exact)', '');
   lines.push('| Item | USD |', '| --- | ---: |');
   for (const row of exactAmounts(summary.cost)) lines.push(`| ${row.label} | ${formatMoney(row.amount)} |`);
   lines.push(`| **Total** | **${formatMoney(summary.cost.total)}** |`);
@@ -174,7 +182,7 @@ export function markdownReceipt(detail: SessionDetail): string {
   lines.push('| Where | USD |', '| --- | ---: |');
   for (const row of delegationAmounts(detail)) lines.push(`| ${row.label} | ${formatMoney(row.amount)} |`);
   lines.push('');
-  lines.push('## By model (exact)', '');
+  lines.push(summary.provider === 'codex' ? '## By model (API-price estimate)' : '## By model (exact)', '');
   lines.push('| Model | Requests | Input | Output | Cache write | Cache read | USD |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: |');
   for (const row of detail.byModel) {
     lines.push(
@@ -187,13 +195,13 @@ export function markdownReceipt(detail: SessionDetail): string {
   for (const row of estimatedAmounts(detail)) lines.push(`| ${row.label} | ${formatMoney(row.amount)} |`);
   const residual = estimatedResidual(detail);
   lines.push(`| ${residual.label} | ${formatMoney(residual.amount)} |`);
-  lines.push(`| **Exact session total** | **${formatMoney(summary.cost.total)}** |`);
+  lines.push(`| **${summary.provider === 'codex' ? 'API-price estimate' : 'Exact session total'}** | **${formatMoney(summary.cost.total)}** |`);
   const reported = detail.facts.reported;
   if (reported) {
     lines.push('');
     lines.push(`Claude Code’s own tally for this session: ${formatMoney(reported.totalCostUSD)}.`);
   }
   lines.push('');
-  lines.push(`_Request costs are exact; attribution lines are estimated (see Methodology). ${ESTIMATE_DETAIL}_`);
+  lines.push(summary.provider === 'codex' ? '_Amounts price recorded tokens at API list rates; they do not represent a subscription bill._' : `_Request costs are exact; attribution lines are estimated (see Methodology). ${ESTIMATE_DETAIL}_`);
   return lines.join('\n');
 }

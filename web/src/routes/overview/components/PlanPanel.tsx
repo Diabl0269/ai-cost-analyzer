@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router';
+import { Link } from '@/lib/navigation';
 import type { BudgetStatus, PlanComparison } from '@core/types';
 import { Callout, LedgerTable, Money, PlanGauge, type LedgerColumn } from '@/components';
 import type { CurrencyDisplay } from '@/lib/format';
 import { formatDate } from '@/lib/format';
 import styles from './Overview.module.css';
+import { useDateRange } from '@/lib/range';
 
 type MonthRow = PlanComparison['months'][number];
 
@@ -24,6 +25,7 @@ export interface PlanPanelProps {
  * pay-per-token figure and asks for the missing one.
  */
 export function PlanPanel({ plan, budget, currency }: PlanPanelProps) {
+  const range = useDateRange();
   const current = useMemo(
     () => plan.months.find((month) => month.month === budget.month) ?? plan.months[plan.months.length - 1] ?? null,
     [plan.months, budget.month],
@@ -57,6 +59,10 @@ export function PlanPanel({ plan, budget, currency }: PlanPanelProps) {
     ],
     [currency],
   );
+
+  if (range.provider !== 'claude') {
+    return <Callout tone="info" title="Subscription comparison is for Claude">Select Claude to compare its API list-price usage with a configured Claude plan. Codex totals are API-price estimates, not subscription charges.</Callout>;
+  }
 
   if (plan.preset === 'none') {
     const soFar = plan.months.reduce((sum, month) => sum + month.apiCost, 0);

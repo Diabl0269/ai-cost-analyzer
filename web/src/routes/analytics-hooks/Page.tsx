@@ -203,6 +203,10 @@ export default function HooksAnalyticsPage() {
     ];
   }, [totals, currency, hookRows, harnessRows, overhead]);
 
+  if (range.provider === 'codex') {
+    return <div className="stack"><PageHeader title="Hooks & harness" /><EmptyState title="Hook attribution unavailable for Codex" description="Codex rollouts do not record Claude Code hook or harness attribution. Missing records do not mean zero overhead." /></div>;
+  }
+
   return (
     <div className={`stack stack-lg ${styles.page}`}>
       <PageHeader

@@ -37,6 +37,10 @@ const HEADER = [
   'costAgentsUsd',
   'costWorkflowsUsd',
   'reportedCostUsd',
+  'provider',
+  'costStatus',
+  'usageIncomplete',
+  'unpriced',
 ];
 
 /** Cell openers a spreadsheet reads as the start of a formula rather than as text. */
@@ -70,6 +74,12 @@ function money(value: number): string {
 export function sessionsToCsv(sessions: readonly SessionSummary[]): string {
   const lines = [HEADER.join(',')];
   for (const s of sessions) {
+    const unavailable = s.usageIncomplete === true && s.requestCount === 0;
+    const whollyUnpriced = s.unpriced && s.cost.total === 0;
+    const costStatus = unavailable ? 'unavailable' : whollyUnpriced ? 'unpriced'
+      : s.usageIncomplete || s.unpriced ? 'partial' : 'recorded';
+    // Preserve known partial subtotals, but never turn an absent price or usage into free usage.
+    const calculatedMoney = (value: number): string => unavailable || whollyUnpriced ? '' : money(value);
     lines.push(
       [
         csvText(s.id),
@@ -89,16 +99,20 @@ export function sessionsToCsv(sessions: readonly SessionSummary[]): string {
         csvField(s.tokens.cacheRead),
         csvField(s.tokens.cache5m + s.tokens.cache1h),
         csvField(s.tokens.context),
-        csvField(money(s.cost.input)),
-        csvField(money(s.cost.output)),
-        csvField(money(s.cost.cacheWrite)),
-        csvField(money(s.cost.cacheRead)),
-        csvField(money(s.cost.webSearch)),
-        csvField(money(s.cost.total)),
-        csvField(money(s.costMain)),
-        csvField(money(s.costAgents)),
-        csvField(money(s.costWorkflows)),
+        csvField(calculatedMoney(s.cost.input)),
+        csvField(calculatedMoney(s.cost.output)),
+        csvField(calculatedMoney(s.cost.cacheWrite)),
+        csvField(calculatedMoney(s.cost.cacheRead)),
+        csvField(calculatedMoney(s.cost.webSearch)),
+        csvField(calculatedMoney(s.cost.total)),
+        csvField(calculatedMoney(s.costMain)),
+        csvField(calculatedMoney(s.costAgents)),
+        csvField(calculatedMoney(s.costWorkflows)),
         csvField(s.reportedCostUsd === null ? '' : money(s.reportedCostUsd)),
+        csvText(s.provider ?? 'claude'),
+        csvText(costStatus),
+        csvField(String(s.usageIncomplete === true)),
+        csvField(String(s.unpriced)),
       ].join(','),
     );
   }

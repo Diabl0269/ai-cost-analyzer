@@ -1,4 +1,5 @@
-import { Link, isRouteErrorResponse, useRouteError } from 'react-router';
+import { isRouteErrorResponse, useRouteError } from 'react-router';
+import { Link } from '@/lib/navigation';
 import { Callout } from '@/components/Callout';
 import { Button, LinkButton } from '@/components/Button';
 import { ApiError } from '@/lib/api';

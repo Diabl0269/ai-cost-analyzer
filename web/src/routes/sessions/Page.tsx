@@ -1,5 +1,6 @@
+import { providerLabel } from '@/lib/provider';
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate } from '@/lib/navigation';
 import { plural } from '@core/pricing/format.js';
 import type { SessionSort, SessionSummary } from '@core/types';
 import { Button } from '@/components/Button';
@@ -45,15 +46,15 @@ const COLUMN_SORT: Record<string, SessionSort> = {
  */
 const COLUMN_PX: Record<string, number> = {
   pin: 48,
-  started: 84,
-  duration: 89,
-  models: 84,
-  prompts: 89,
-  requests: 81,
-  tools: 62,
-  agents: 67,
-  cost: 93,
-  reported: 157,
+  started: 92,
+  duration: 100,
+  models: 140,
+  prompts: 100,
+  requests: 104,
+  tools: 80,
+  agents: 80,
+  cost: 116,
+  reported: 172,
 };
 
 const COLUMN_SETS: Record<LedgerWidth, readonly string[]> = {
@@ -63,7 +64,7 @@ const COLUMN_SETS: Record<LedgerWidth, readonly string[]> = {
   full: ['pin', 'title', 'started', 'duration', 'models', 'prompts', 'requests', 'tools', 'agents', 'cost', 'reported'],
 };
 
-const MIN_TITLE_PX = 120;
+const MIN_TITLE_PX = 96;
 
 /** `LedgerTable`'s header/cell padding (`8px 12px`), which a border-box column width includes. */
 const CELL_PADDING_PX = 24;
@@ -81,23 +82,35 @@ export default function SessionsPage() {
   const sessions = useSessionsInfinite(list.query);
   const models = useModelsAnalytics(range.query);
   const status = useStatus();
-  const ledgerWidth = useLedgerWidth();
-  const narrow = ledgerWidth === 'narrow';
+  const viewportWidth = useLedgerWidth();
   // Sessions the scratch filter is keeping out of this table. Without the note the footer's
   // count and the index count in the top bar disagree with nothing to explain the gap.
   const scratchHidden = status.data?.scratchSessions ?? 0;
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const tableWidth = useElementWidth(bodyRef, 0);
+  // The rail and page padding change the space the ledger actually has. Pick columns from
+  // that measured space so widening the model/cost cells never pushes Cost out of view.
+  const ledgerWidth = useMemo<LedgerWidth>(() => {
+    if (viewportWidth === 'narrow' || tableWidth === 0) return viewportWidth;
+    for (const candidate of ['full', 'rich', 'mid', 'narrow'] as const) {
+      const occupied = COLUMN_SETS[candidate]
+        .filter((id) => id !== 'title' && !(range.provider === 'codex' && id === 'reported'))
+        .reduce((sum, id) => sum + (COLUMN_PX[id] ?? 0), 0);
+      if (occupied + MIN_TITLE_PX + 6 <= tableWidth) return candidate;
+    }
+    return 'narrow';
+  }, [tableWidth, viewportWidth, range.provider]);
+  const narrow = ledgerWidth === 'narrow';
   const [focusedId, setFocusedId] = useState<string | null>(null);
 
   const titlePx = useMemo(() => {
     if (tableWidth <= 0) return null;
     const others = COLUMN_SETS[ledgerWidth]
-      .filter((id) => id !== 'title')
+      .filter((id) => id !== 'title' && !(range.provider === 'codex' && id === 'reported'))
       .reduce((sum, id) => sum + (COLUMN_PX[id] ?? 0), 0);
     // A couple of pixels for the table's own border.
     return Math.max(MIN_TITLE_PX, tableWidth - others - 6);
-  }, [tableWidth, ledgerWidth]);
+  }, [tableWidth, ledgerWidth, range.provider]);
 
   const rows = useMemo(
     () => (sessions.data?.pages ?? []).flatMap((page) => page.sessions),
@@ -210,7 +223,7 @@ export default function SessionsPage() {
             ) : null}
           </span>
           <span className={styles.subLine} title={session.projectPath}>
-            {shortProjectPath(session.projectPath)}
+            {providerLabel(session.provider)} · {shortProjectPath(session.projectPath)}
             {session.gitBranch ? <span className={styles.branch}> · {session.gitBranch}</span> : null}
           </span>
           {/* Two columns is all a phone has room for, so the facts the other columns would have
@@ -233,7 +246,16 @@ export default function SessionsPage() {
       sortValue: (session) => session.cost.total,
       cell: (session) => (
         <span className={styles.costCell}>
-          <Money usd={session.cost.total} className={styles.cost} />
+          {session.usageIncomplete && session.requestCount === 0 ? (
+            <Tooltip content="This rollout contains assistant messages but no recorded token usage. Its cost is unavailable.">
+              <span className="muted">Unavailable</span>
+            </Tooltip>
+          ) : <Money usd={session.cost.total} className={styles.cost} />}
+          {session.usageIncomplete && session.requestCount > 0 ? (
+            <Tooltip content="Some token usage is missing. This total covers recorded tokens only.">
+              <span className={styles.unpriced} aria-label="Incomplete usage"><Icon name="warning" size={12} /></span>
+            </Tooltip>
+          ) : null}
           {session.unpriced ? (
             <Tooltip content="This session used a model with no price in the pricing table, so its total is a floor. Add a price in Settings.">
               <span className={styles.unpriced} aria-label="Unpriced model">
@@ -272,10 +294,19 @@ export default function SessionsPage() {
       width: `${COLUMN_PX.models}px`,
       cell: (session) => (
         <span className={styles.models}>
-          {session.models.slice(0, 3).map((model) => (
-            <ModelChip key={model} model={model} glyphOnly />
-          ))}
-          {session.models.length > 3 ? <span className={styles.more}>+{session.models.length - 3}</span> : null}
+          {session.provider === 'codex' ? (
+            <>
+              <span className={styles.codexModel} title={session.models[0]}>
+                {/auto.?review/i.test(session.models[0] ?? '') ? 'Auto-review' : (session.models[0] ?? 'Unknown').replace(/^gpt-/i, '')}
+              </span>
+              {session.models.length > 1 ? <span className={styles.more} title={session.models.slice(1).join(', ')}>+{session.models.length - 1}</span> : null}
+            </>
+          ) : (
+            <>
+              {session.models.slice(0, 3).map((model) => <ModelChip key={model} model={model} glyphOnly />)}
+              {session.models.length > 3 ? <span className={styles.more}>+{session.models.length - 3}</span> : null}
+            </>
+          )}
         </span>
       ),
     };
@@ -316,7 +347,7 @@ export default function SessionsPage() {
       width: `${COLUMN_PX.agents}px`,
       headerTitle: 'Subagents this session launched, and workflow runs',
       cell: (session) =>
-        session.agentCount > 0 || session.workflowRunCount > 0 ? (
+        session.provider === 'codex' && session.agentCount === 0 ? <span title="No linked agent transcript recorded for this Codex session">{EM_DASH}</span> : session.agentCount > 0 || session.workflowRunCount > 0 ? (
           <span
             title={`${plural(session.agentCount, 'subagent')} and ${plural(session.workflowRunCount, 'workflow run')}`}
           >
@@ -331,17 +362,17 @@ export default function SessionsPage() {
       id: 'reported',
       header: <ReportedHeader />,
       width: `${COLUMN_PX.reported}px`,
-      cell: (session) => <ReportedBadge status={session.reportedStatus} />,
+      cell: (session) => session.provider === 'codex' ? <span title="Codex has no Claude Code cost-state tally">{EM_DASH}</span> : <ReportedBadge status={session.reportedStatus} />,
     };
 
     // Widest set that fits, never at the cost of the two columns that carry the answer.
     if (ledgerWidth === 'narrow') return [pinColumn, titleColumn, costColumn];
     if (ledgerWidth === 'mid') return [pinColumn, titleColumn, started, duration, requests, costColumn];
     if (ledgerWidth === 'rich') {
-      return [pinColumn, titleColumn, started, duration, models, prompts, requests, costColumn, reported];
+      return [pinColumn, titleColumn, started, duration, models, prompts, requests, costColumn, ...(range.provider === 'codex' ? [] : [reported])];
     }
-    return [pinColumn, titleColumn, started, duration, models, prompts, requests, tools, agents, costColumn, reported];
-  }, [pin, narrow, ledgerWidth, titlePx]);
+    return [pinColumn, titleColumn, started, duration, models, prompts, requests, tools, agents, costColumn, ...(range.provider === 'codex' ? [] : [reported])];
+  }, [pin, narrow, ledgerWidth, titlePx, range.provider]);
 
   const sort: LedgerSort = { columnId: list.filters.sort, direction: list.filters.order };
   const onSortChange = useCallback(
@@ -426,7 +457,8 @@ export default function SessionsPage() {
               inline
               icon="sessions"
               title="No sessions match these filters"
-              description="Widen the date range, or clear the filters above."
+              description="Your history may be outside this date range. Show all history, or clear the filters above."
+              action={<Button variant="secondary" onClick={() => range.setPreset('all')}>Show all history</Button>}
             />
           }
         />

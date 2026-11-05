@@ -113,14 +113,19 @@ export function requestCost(
   pricing: PricingConfig,
   resolver?: PriceResolver,
 ): RequestCostResult {
-  const flags = flagsOf(req);
+  const flags = { ...flagsOf(req), contextTokens: req.contextTokens, cacheWriteTokens: req.usage.cache5m + req.usage.cache1h };
   const resolve = resolver ?? ((model: string, f: PriceFlags) => resolvePrice(model, f, pricing));
-  const resolved = resolve(req.model, flags);
+  let resolved = resolve(req.model, flags);
   const iterations = req.iterations;
   if (iterations && iterations.length > 1) {
-    const perIteration = iterations.map((it) =>
-      costOfUsage(it.usage, resolve(it.model || req.model, flags), pricing.webSearchPer1000),
-    );
+    const perIteration = iterations.map((it) => {
+      const price = resolve(it.model || req.model, {
+        ...flags, contextTokens: contextTokensOf(it.usage),
+        cacheWriteTokens: it.usage.cache5m + it.usage.cache1h,
+      });
+      if (price.unpriced) resolved = { ...resolved, unpriced: true };
+      return costOfUsage(it.usage, price, pricing.webSearchPer1000);
+    });
     return { cost: sumBreakdowns(perIteration), resolved, perIteration };
   }
   return { cost: costOfUsage(req.usage, resolved, pricing.webSearchPer1000), resolved };
