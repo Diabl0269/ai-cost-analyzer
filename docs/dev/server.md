@@ -5,7 +5,16 @@ Owns: `server/**`, `scripts/dev.mjs`, `tests/server/**`.
 ## Running
 
 - `npm run dev` → `scripts/dev.mjs` spawns `node --watch --import tsx/esm server/cli.ts --no-open`
-  (`CCA_DEV=1`) and `npx vite` (port 5173, proxies `/api` to 4141). Open http://127.0.0.1:5173/.
+  (`CCA_DEV=1`) and the local Vite CLI using the same Node executable (port 5173, proxies `/api`
+  to 4141). Open http://127.0.0.1:5173/. The runner rejects unsupported Node versions before
+  starting either process; run `nvm use` in the same shell if Node 23 is selected. Vite starts
+  only after the API reports it is listening. If the API does not start within 30 seconds, the
+  runner exits instead of leaving Vite serving repeated `ECONNREFUSED` proxy errors; the
+  underlying startup error remains visible in the `[server]` output.
+  The runner honors nvm's explicit `NVM_BIN/node` selection first, then `npm_node_execpath`,
+  relaunching if necessary. This handles a PATH entry shadowing nvm's Node for both npm and
+  its scripts. It does not change the terminal's default Node version. Supported runtimes
+  are Node 22.13+ (22.x) and Node 24+, matching `package.json`; Node 22 is the `.nvmrc` default.
   It is deliberately not `tsx watch`: that CLI opens a unix domain socket to its child, which
   sandboxed shells refuse with `EPERM`. `tsx/esm` is the loader half only.
 - `npm start` → runs the built `dist/server/cli.js` directly (production: one process on 4141).
