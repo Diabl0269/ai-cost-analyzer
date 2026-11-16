@@ -147,7 +147,11 @@ async function indexPass(args: IndexPassArgs): Promise<IndexResult> {
       db.exec('COMMIT');
     } catch (error) {
       db.exec('ROLLBACK');
-      throw error;
+      // One session that cannot be written must not stop the sessions after it from indexing.
+      result.parseErrors += 1;
+      result.sessionsFailed = (result.sessionsFailed ?? 0) + 1;
+      progress.update({ phase: 'write', message: `write failed for one session (${(error as Error).name || 'Error'})` });
+      continue;
     }
     result.parseErrors += parsed.main.meta.parseErrors;
     result.sessionsIndexed += 1;

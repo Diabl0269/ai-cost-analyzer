@@ -161,4 +161,10 @@ describe('Copilot CLI session-state adapter', () => {
     expect(normalizeCopilotLine(event('tool.execution_start', { toolCallId: 'mcp-one', toolName: 'read', mcpServerName: 'docs', arguments: '{"key":"value"}' }))).toMatchObject({ message: { content: [{ type: 'tool_use', name: 'mcp__docs__read', input: { key: 'value' } }] } });
     expect(copilotUsage({ ...usage(100, 40, 20, 10), cost: 1000, reasoningTokens: 40 })).toEqual({ input_tokens: 50, cache_read_input_tokens: 40, cache_creation_input_tokens: 10, output_tokens: 20, output_tokens_details: { thinking_tokens: 20 } });
   });
+
+  it('gives each model billed by one shutdown line its own request row', async () => {
+    const t = await parsed([prompt('Hello'), answer('Hi'), event('session.shutdown', { modelMetrics: { 'gpt-5': metric(usage(100, 10, 20)), 'claude-sonnet-4.5': metric(usage(200, 20, 40)) } })]);
+    expect(t.requests).toHaveLength(2);
+    expect(new Set(t.requests.map((request) => request.seq)).size).toBe(2);
+  });
 });
