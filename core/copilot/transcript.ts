@@ -156,6 +156,14 @@ export async function parseCopilotTranscript(file: DiscoveredFile, agentId: stri
   if (partial || assistantCoverage.some((item) => item.seq > coveredThrough && (!item.callId || !meteredCalls.has(item.callId)))) {
     transcript.meta.usageIncomplete = true;
   }
+  // One shutdown/checkpoint line can bill several models; each needs its own unique request row.
+  // Their blank source lines are hidden below, so the replacement sequence numbers address nothing.
+  const used = new Set<number>();
+  let nextSeq = Math.max(builder.meta.lineCount, ...transcript.requests.map((request) => request.seq)) + 1;
+  for (const request of transcript.requests) {
+    if (used.has(request.seq)) request.seq = nextSeq++;
+    used.add(request.seq);
+  }
   const seqs = new Set(transcript.requests.map((request) => request.seq));
   transcript.messages = transcript.messages.filter((message) => !hidden.has(message.seq));
   for (const message of transcript.messages) {
