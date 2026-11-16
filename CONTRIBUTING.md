@@ -1,8 +1,9 @@
 # Contributing
 
-Thanks for looking at AI Cost Analyzer. This is a local, single-user web app that reads Claude
-Code transcripts from `~/.claude/projects` and prices every request, tool call, subagent, workflow,
-hook and harness injection at API list prices. The full design is `SPEC.md` (binding); the cost
+Thanks for looking at AI Cost Analyzer. This is a local, single-user web app that reads the local
+history of AI coding assistants (Claude Code, Codex, GitHub Copilot and OpenCode) and prices every
+request, tool call and subagent at API list prices; Claude Code transcripts also get workflow, hook
+and harness-injection attribution. The full design is `SPEC.md` (binding); the cost
 model is explained in `docs/METHODOLOGY.md`; per-module notes live in `docs/dev/*.md`.
 
 ## Node 22, always
@@ -48,6 +49,7 @@ Ports and homes are all overridable, so more than one checkout can run at once w
 core/                 pure TypeScript, no HTTP, no React — types.ts is the shared contract
   types.ts            domain + API types. Append-only; never rename or repurpose a field.
   discover.ts jsonl.ts parse/    JSONL → ParsedSession        (parser module)
+  codex/ copilot/ opencode/      per-tool adapters into the same ParsedSession contract
   pricing/ cost/ db/             pricing table, attribution, SQLite index, queries  (cost/index module)
   demo/                          seeded synthetic dataset generator (pure; no real data)  (docs/dev/demo.md)
 server/               Hono app: routes, auth, indexing worker, SSE, fs watcher, CLI
@@ -132,7 +134,7 @@ mismatch drops and recreates every table on next open — there are no migration
 ## Multiple AI tools
 
 `core/codex/` adapts Codex rollout files into the shared parser contract. Discovery records a
-provider (`claude`, `codex` or `copilot`), the index stores it on sessions, and `RangeQuery.provider` scopes
+provider (`claude`, `codex`, `copilot` or `opencode`), the index stores it on sessions, and `RangeQuery.provider` scopes
 all list/search/analytics/export queries. Missing provider means all providers. Shared projects merge by
 exact reported working directory, preserving Claude project IDs for existing links.
 
@@ -183,3 +185,13 @@ readable model labels; full model IDs remain available in tooltips.
 `server/copilot-paths.ts` resolves the local platform's editor storage paths. `CCA_COPILOT_DIR`,
 `--copilot-dir` and `COPILOT_HOME` select Copilot roots; `CCA_E2E_COPILOT_DIR` enables synthetic
 browser coverage. Preserve missing-usage state and never interpret Copilot credits as dollars.
+
+## OpenCode source
+
+`core/opencode/` reads OpenCode's SQLite store (`opencode.db`) read-only, supporting both the
+`session`/`message`/`part` layout and the newer `session_v2`/`session_message` layout. See
+`docs/dev/opencode.md`. `CCA_OPENCODE_DIR` / `--opencode-dir` select a data directory or database
+file; `XDG_DATA_HOME` moves the default. Tests build synthetic databases with
+`tests/helpers/opencode-db.ts` — never copy a real `opencode.db` into the repo. Each session's
+virtual file path is `<db>#opencode:<session id>`, and transcript lines are addressed by virtual
+sequence number, as for VS Code journals.

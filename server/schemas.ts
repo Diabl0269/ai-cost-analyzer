@@ -24,7 +24,7 @@ function commaList<T extends string>(values: readonly [T, ...T[]]) {
 }
 
 export const rangeQuerySchema = z.object({
-  provider: z.enum(['claude', 'codex', 'copilot']).optional(),
+  provider: z.enum(['claude', 'codex', 'copilot', 'opencode']).optional(),
   from: dateSchema.optional(),
   to: dateSchema.optional(),
   project: z.string().min(1).max(4096).optional(),

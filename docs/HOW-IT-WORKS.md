@@ -1,6 +1,7 @@
 # How this app works, end to end
 
-A local reader over files Claude Code has already written. Nothing here talks to Anthropic, and
+A local reader over history that Claude Code, Codex, GitHub Copilot and OpenCode have already written
+to disk. Nothing here talks to any of those vendors, and
 there is no job to start: the index follows the transcripts, and the numbers are computed when you
 ask for them.
 
@@ -12,7 +13,9 @@ workflow agents their own files under `<session>/subagents/`. Every assistant li
 `usage` block the API returned for that request: input, output, thinking, cache reads and cache
 writes.
 
-This app reads those files and nothing else. No API key, no account, no network call. If a session
+Codex, Copilot and OpenCode (a SQLite database) store comparable per-request token counts in their
+own formats; the adapters under `core/` normalise each into the same shape. See the README for
+the locations. This app reads those files and nothing else. No API key, no account, no network call. If a session
 is on disk it can be priced; if it is not, no amount of re-indexing will find it. The directories
 being read are listed in **Settings › Data**; a `--claude-dir` flag or `CCA_CLAUDE_DIR` overrides
 the roots in `~/.claude-cost-analyzer/config.json`.
@@ -25,7 +28,7 @@ Automatically, in three steps.
    what the index recorded, and re-parses only the sessions whose files differ. A first run differs
    in everything, so the first index is the slow one; later starts are quick.
 2. **While it runs**, a recursive watcher (`fs.watch`) sits on each root and notices writes to
-   `.jsonl`, `.meta.json` and `custom-title.json` files. A file is left alone until it has been
+   `.jsonl`, `.meta.json` and `custom-title.json` files (and OpenCode's `opencode.db`). A file is left alone until it has been
    quiet for **3 seconds**, so a session being written to right now is not parsed mid-write; the
    settled files are then batched and re-parsed. Indexing happens on a worker thread, one run at a
    time, and requests that arrive during a run are coalesced into the next one.

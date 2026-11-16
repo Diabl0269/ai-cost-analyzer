@@ -97,7 +97,7 @@ export function IndexStatusPill({
     if (error) return 'Indexing failed.';
     if (decile >= 0) return `Indexing, ${decile * 10}% of files read.`;
     if (!statusResolved) return 'Connecting to the local server.';
-    if (firstRun) return 'No Claude Code or Codex transcripts found.';
+    if (firstRun) return 'No AI coding transcripts found.';
     return connected ? 'Index up to date.' : 'Not connected to the local server.';
   }, [error, decile, connected, statusResolved, firstRun]);
 

@@ -2,7 +2,7 @@
   "name": "ai-cost-analyzer",
   "version": "0.1.0",
   "private": true,
-  "description": "Local cost analyzer for Claude Code and Codex conversations: every token, accounted for.",
+  "description": "Local cost analyzer for AI coding assistants (Claude Code, Codex, GitHub Copilot, OpenCode): every token, accounted for.",
   "type": "module",
   "license": "MIT",
   "repository": {

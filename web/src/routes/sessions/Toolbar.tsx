@@ -66,7 +66,7 @@ export function Toolbar({ list, models, csvHref }: ToolbarProps) {
         />
       </div>
 
-      {list.query.provider !== 'codex' && list.query.provider !== 'copilot' ? <Select
+      {list.query.provider !== 'codex' && list.query.provider !== 'copilot' && list.query.provider !== 'opencode' ? <Select
         label="Entrypoint"
         hideLabel
         value={filters.entrypoint}

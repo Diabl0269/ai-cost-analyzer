@@ -6,12 +6,12 @@
 
 // ───────────────────────────── Discovery ─────────────────────────────
 
-export type Provider = 'claude' | 'codex' | 'copilot';
+export type Provider = 'claude' | 'codex' | 'copilot' | 'opencode';
 
 export type TranscriptKind = 'main' | 'subagent' | 'workflow-agent';
 
 export interface DiscoveredFile {
-  provider?: 'claude' | 'codex' | 'copilot';
+  provider?: 'claude' | 'codex' | 'copilot' | 'opencode';
   path: string;
   size: number;
   mtimeMs: number;
@@ -44,7 +44,7 @@ export interface DiscoveredWorkflowRun {
 }
 
 export interface DiscoveredSession {
-  provider?: 'claude' | 'codex' | 'copilot';
+  provider?: 'claude' | 'codex' | 'copilot' | 'opencode';
   projectDirName: string;
   projectDirPath: string;
   sessionId: string;

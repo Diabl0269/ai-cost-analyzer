@@ -4,6 +4,7 @@
  * the DB and config may contain (derived) cost data for the user's private transcripts.
  */
 import { copilotRoots, copilotEditorRoots } from './copilot-paths.js';
+import { openCodeDefaultRoots, selectedOpenCodeRoots } from './opencode-paths.js';
 import { existsSync, mkdirSync, chmodSync, statSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, resolve, sep } from 'node:path';
@@ -78,11 +79,13 @@ export interface ResolveRootsOptions {
   codexDirFlag?: string;
   /** Copilot home/session-state or VS Code transcript root. */
   copilotDirFlag?: string;
+  /** OpenCode data directory (containing opencode.db) or the database file. */
+  opencodeDirFlag?: string;
   env?: NodeJS.ProcessEnv;
 }
 
 /**
- * Explicit Claude/Codex selections override configured roots and may be combined.
+ * Explicit Claude/Codex/Copilot/OpenCode selections override configured roots and may be combined.
  * Without overrides, the legacy default adds Codex session roots honoring CODEX_HOME.
  * Custom settings roots remain unchanged. Results are absolute and `~`-expanded.
  */
@@ -91,12 +94,14 @@ export function resolveRoots(opts: ResolveRootsOptions = {}): string[] {
   const claude = opts.claudeDirFlag ?? env.CCA_CLAUDE_DIR;
   const codex = opts.codexDirFlag ?? env.CCA_CODEX_DIR;
   const copilot = opts.copilotDirFlag ?? env.CCA_COPILOT_DIR;
+  const opencode = opts.opencodeDirFlag ?? env.CCA_OPENCODE_DIR;
   // An explicit source selection stays isolated (including fixtures and demo runs).
-  if (claude || codex || copilot) {
+  if (claude || codex || copilot || opencode) {
     return [...new Set([
       ...(claude ? [resolve(expandHome(claude))] : []),
       ...(codex ? codexRoots(codex) : []),
       ...(copilot ? selectedCopilotRoots(copilot) : []),
+      ...(opencode ? selectedOpenCodeRoots(expandHome(opencode)) : []),
     ])];
   }
   const configured = opts.settingsRoots?.length ? opts.settingsRoots : [DEFAULT_ROOT];
@@ -113,7 +118,7 @@ export function resolveRoots(opts: ResolveRootsOptions = {}): string[] {
   });
   const standardRoots = [DEFAULT_ROOT, '~/.codex/sessions', '~/.codex/archived_sessions', '~/.copilot/session-state'];
   const defaultSelection = configured.length === 1 && configured[0] === DEFAULT_ROOT || configured.length === standardRoots.length && configured.every((root, i) => root === standardRoots[i]);
-  if (defaultSelection) resolved.push(...copilotEditorRoots(env));
+  if (defaultSelection) resolved.push(...copilotEditorRoots(env), ...openCodeDefaultRoots(env));
   return [...new Set(resolved)];
 }
 
