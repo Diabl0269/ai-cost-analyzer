@@ -53,3 +53,7 @@ A few local-tooling notes not worth putting in the public docs:
   in sessions, models, overview and index status. Preserve `RequestCost.usageGranularity` in UI guards.
 - `core/cost/usage-coverage.ts` owns absent-versus-partial usage semantics for UI and CSV;
   aggregate tokens can exist without observed API calls. Do not use request count alone.
+
+- OpenCode adapter: `core/opencode/` reads `opencode.db` read-only (legacy and `session_v2` layouts);
+  only session/message/part tables, never auth/credential data. Sessions use virtual paths
+  `<db>#opencode:<id>`; `CCA_OPENCODE_DIR` / `--opencode-dir` select sources. See `docs/dev/opencode.md`.

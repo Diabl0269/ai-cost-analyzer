@@ -14,6 +14,7 @@ import { META_LAST_INDEXED_AT, getMeta, openDatabase, resetDatabase, setMeta } f
 import { refreshProjects } from './projects.js';
 import { SessionWriter, fileSignature } from './write-session.js';
 import { str, num, type Row } from './rows.js';
+import { splitOpenCodePath } from '../opencode/db.js';
 
 /** Bump when derived parser facts change even if transcript bytes and DB columns do not. */
 export const PARSER_VERSION = '4';
@@ -218,9 +219,12 @@ export async function indexChangedFiles(paths: string[], opts: IndexerRunOptions
     progress.update({ phase: 'discover' });
     const discover = await loadDiscover(opts);
     const all = await discover(opts.roots);
-    const wanted = new Set(paths);
+    // OpenCode sessions live inside one SQLite file; its write-ahead log signals the same change.
+    const wanted = new Set(paths.map((p) => p.replace(/\.db-(?:wal|shm)$/, '.db')));
     const sessions = all.filter((session) =>
-      filesOf(session).some((file) => wanted.has(file.path) || [...wanted].some((p) => p.startsWith(`${file.path}/`))),
+      filesOf(session).some((file) =>
+        wanted.has(file.path) || wanted.has(splitOpenCodePath(file.path)?.dbPath ?? file.path)
+        || [...wanted].some((p) => p.startsWith(`${file.path}/`))),
     );
     if (sessions.length === 0) {
       progress.update({ phase: 'done' });

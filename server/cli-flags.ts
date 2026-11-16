@@ -8,6 +8,7 @@ export interface Flags {
   claudeDir?: string;
   codexDir?: string;
   copilotDir?: string;
+  opencodeDir?: string;
   reindex: boolean;
   home?: string;
   demo: boolean;
@@ -37,6 +38,9 @@ export function parseFlags(argv: string[], env: NodeJS.ProcessEnv): Flags {
       case '--copilot-dir':
         flags.copilotDir = argv[++i];
         break;
+      case '--opencode-dir':
+        flags.opencodeDir = argv[++i];
+        break;
       case '--codex-dir':
         flags.codexDir = argv[++i];
         break;
@@ -62,15 +66,17 @@ export function parseFlags(argv: string[], env: NodeJS.ProcessEnv): Flags {
   if (!Number.isFinite(flags.port) || flags.port <= 0) {
     throw new Error('invalid --port value');
   }
-  for (const name of ['claudeDir', 'codexDir', 'copilotDir', 'home'] as const) {
+  for (const name of ['claudeDir', 'codexDir', 'copilotDir', 'opencodeDir', 'home'] as const) {
     if (flags[name] !== undefined && (!flags[name] || flags[name]!.startsWith('--'))) {
-      throw new Error(`invalid --${name === 'claudeDir' ? 'claude-dir' : name === 'codexDir' ? 'codex-dir' : name === 'copilotDir' ? 'copilot-dir' : name} value`);
+      throw new Error(`invalid --${name === 'claudeDir' ? 'claude-dir' : name === 'codexDir' ? 'codex-dir' : name === 'copilotDir' ? 'copilot-dir' : name === 'opencodeDir' ? 'opencode-dir' : name} value`);
     }
   }
   if (argv.includes('--copilot-dir') && flags.copilotDir === undefined) throw new Error('invalid --copilot-dir value');
+  if (argv.includes('--opencode-dir') && flags.opencodeDir === undefined) throw new Error('invalid --opencode-dir value');
   if (argv.includes('--codex-dir') && flags.codexDir === undefined) throw new Error('invalid --codex-dir value');
   if (argv.includes('--claude-dir') && flags.claudeDir === undefined) throw new Error('invalid --claude-dir value');
   if (flags.demo) {
+    if (flags.opencodeDir) throw new Error('--demo and --opencode-dir are mutually exclusive');
     if (flags.copilotDir) throw new Error('--demo and --copilot-dir are mutually exclusive');
     if (flags.codexDir) throw new Error('--demo and --codex-dir are mutually exclusive');
     if (flags.claudeDir) throw new Error('--demo and --claude-dir are mutually exclusive');

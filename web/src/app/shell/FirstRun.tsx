@@ -25,7 +25,7 @@ export function FirstRun({ roots }: FirstRunProps) {
   return (
     <div className={`stack stack-lg ${styles.page}`}>
       <header className="stack stack-sm">
-        <h1>No Claude Code or Codex transcripts found</h1>
+        <h1>No AI coding transcripts found</h1>
         <p className="muted ui-sm">
           There is nothing indexed yet, so there is nothing to price. Every page here reads the same local files —
           none of them leaves this machine.
@@ -51,7 +51,7 @@ export function FirstRun({ roots }: FirstRunProps) {
         )}
         <p className="ui-sm">
           Claude Code writes one directory per project under <code>~/.claude/projects</code>, and one{' '}
-          <code>.jsonl</code> file per session inside it. Codex writes rollout JSONL files under <code>~/.codex/sessions</code> and <code>~/.codex/archived_sessions</code>. Copilot CLI and the Copilot app write events under <code>~/.copilot/session-state</code>. Saved VS Code chat sessions are detected from editor storage. A root with no session file indexes to nothing.
+          <code>.jsonl</code> file per session inside it. Codex writes rollout JSONL files under <code>~/.codex/sessions</code> and <code>~/.codex/archived_sessions</code>. Copilot CLI and the Copilot app write events under <code>~/.copilot/session-state</code>. Saved VS Code chat sessions are detected from editor storage. OpenCode keeps its sessions in the <code>opencode.db</code> database under <code>~/.local/share/opencode</code>. A root with no session file indexes to nothing.
         </p>
         <div className="cluster">
           <Button
@@ -73,7 +73,7 @@ export function FirstRun({ roots }: FirstRunProps) {
       </section>
 
       <p className="muted-2 ui-xs">
-        Run Claude Code or Codex once in any project, then re-index — a session appears as soon as its first request is
+        Run Claude Code, Codex, Copilot or OpenCode once in any project, then re-index — a session appears as soon as its first request is
         written to disk.
       </p>
     </div>

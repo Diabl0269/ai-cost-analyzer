@@ -8,9 +8,10 @@
 import { watch, type FSWatcher } from 'node:fs';
 import { join } from 'node:path';
 import { directoryExists } from './paths.js';
+import { hasOpenCodeDatabase } from './opencode-paths.js';
 
 const QUIET_PERIOD_MS = 3_000;
-const RELEVANT_SUFFIXES = ['.jsonl', '.meta.json', 'custom-title.json'];
+const RELEVANT_SUFFIXES = ['.jsonl', '.meta.json', 'custom-title.json', 'opencode.db', 'opencode.db-wal'];
 
 export interface WatcherDeps {
   /** called once per settled file, batched by the quiet-period debounce */
@@ -65,7 +66,8 @@ export function startWatcher(roots: string[], deps: WatcherDeps): Watcher {
       continue;
     }
     try {
-      const watcher = watch(root, { recursive: true }, (_eventType, filename) => {
+      // An OpenCode data directory also holds repositories and snapshots; only its database matters.
+      const watcher = watch(root, { recursive: !hasOpenCodeDatabase(root) }, (_eventType, filename) => {
         if (!filename) return;
         const name = filename.toString();
         if (!isRelevant(name) && !(name.endsWith('.json') && /(?:^|[/\\])(?:chatSessions|emptyWindowChatSessions)[/\\]/.test(join(root, name)))) return;

@@ -196,7 +196,7 @@ export default function OverviewPage() {
         title="Overview"
         lead={
           <>
-            {`${rangeSentence} · recorded Claude Code and Codex usage, priced at API list rates.`}
+            {`${rangeSentence} · recorded AI coding usage, priced at API list rates.`}
             {priorComparable && previousBounds
               ? ` Compared with ${formatRangeSentence(previousBounds.from, previousBounds.to)}.`
               : ''}

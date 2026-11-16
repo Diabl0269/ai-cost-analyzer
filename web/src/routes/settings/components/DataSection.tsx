@@ -54,7 +54,7 @@ export function DataSection() {
           <div className={styles.card}>
             <h3>Transcript roots</h3>
             <p className="ui-xs muted-2">
-              What is actually being indexed right now. Claude Code roots can be overridden with <code>--claude-dir</code> or <code>CCA_CLAUDE_DIR</code>; Codex roots with <code>--codex-dir</code> or <code>CCA_CODEX_DIR</code>; Copilot roots with <code>--copilot-dir</code> or <code>CCA_COPILOT_DIR</code>. These override
+              What is actually being indexed right now. Claude Code roots can be overridden with <code>--claude-dir</code> or <code>CCA_CLAUDE_DIR</code>; Codex roots with <code>--codex-dir</code> or <code>CCA_CODEX_DIR</code>; Copilot roots with <code>--copilot-dir</code> or <code>CCA_COPILOT_DIR</code>; OpenCode with <code>--opencode-dir</code> or <code>CCA_OPENCODE_DIR</code>. These override
               the configured roots, which is why this list is shown rather than edited here; change it in{' '}
               <code>~/.claude-cost-analyzer/config.json</code> or on the command line.
             </p>
@@ -154,7 +154,7 @@ export function DataSection() {
         open={rebuildOpen}
         onClose={() => setRebuildOpen(false)}
         title="Rebuild the index from scratch?"
-        description="The database is deleted and every transcript is parsed again. No Claude Code or Codex source files are touched, but the app will be re-reading files for a while."
+        description="The database is deleted and every transcript is parsed again. No source files from any AI tool are touched, but the app will be re-reading files for a while."
         alert
         size="sm"
         footer={

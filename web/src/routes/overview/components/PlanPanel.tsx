@@ -61,7 +61,7 @@ export function PlanPanel({ plan, budget, currency }: PlanPanelProps) {
   );
 
   if (range.provider !== 'claude') {
-    return <Callout tone="info" title="Subscription comparison is for Claude">Select Claude to compare its API list-price usage with a configured Claude plan. Codex totals are API-price estimates, not subscription charges.</Callout>;
+    return <Callout tone="info" title="Subscription comparison is for Claude">Select Claude to compare its API list-price usage with a configured Claude plan. Codex, Copilot and OpenCode totals are API-price estimates, not subscription charges.</Callout>;
   }
 
   if (plan.preset === 'none') {

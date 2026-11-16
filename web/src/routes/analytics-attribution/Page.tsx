@@ -146,7 +146,7 @@ export default function AttributionAnalyticsPage() {
     [],
   );
 
-  if ((range.provider === 'codex' || range.provider === 'copilot')) {
+  if ((range.provider === 'codex' || range.provider === 'copilot' || range.provider === 'opencode')) {
     return <div className="stack"><PageHeader title="Attribution" /><EmptyState title={`Attribution unavailable for ${providerLabel(range.provider)}`} description="These transcripts do not record Claude Code skills, workflows or harness attribution." /></div>;
   }
 

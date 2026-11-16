@@ -83,9 +83,9 @@ export function findModelPrice(id: string, pricing: PricingConfig): ModelPrice |
       if (norm === literal.toLowerCase()) return model;
     }
   }
-  // Copilot's provider prefix and dotted Claude versions identify the same underlying model.
+  // A gateway/provider prefix (`copilot/`, `anthropic/`) and dotted Claude versions identify the same underlying model.
   // Resolve literal/custom entries first so existing user pricing always wins.
-  const canonical = norm.replace(/^copilot\//, '').replace(/^(claude-(?:opus|sonnet|haiku)-\d+)\.(\d+)(?=-|$)/, '$1-$2');
+  const canonical = norm.replace(/^[a-z0-9._-]+\//, '').replace(/^(claude-(?:opus|sonnet|haiku)-\d+)\.(\d+)(?=-|$)/, '$1-$2');
   return canonical !== norm ? findModelPrice(canonical, pricing) : null;
 }
 

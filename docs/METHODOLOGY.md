@@ -2,8 +2,8 @@
 
 Every number in the app is one of two kinds, and the UI always says which:
 
-- **Exact** — derived directly from the token counts Claude Code writes into each transcript line and the
-  public list prices. Request cost, session cost, per-model cost, cache read/write split.
+- **Exact** — derived directly from the token counts the tool (Claude Code, Codex, Copilot or OpenCode) writes into each
+  transcript line and the public list prices. Request cost, session cost, per-model cost, cache read/write split.
 - **Estimated (marked "est.")** — an allocation of exact costs to the things that filled the context window:
   a tool result, a hook's injected text, a system reminder, your prompt. Anthropic bills per request, not
   per tool call, so any per-tool number is an attribution model. Ours is documented below so you can
@@ -209,7 +209,7 @@ usage and unknown models must not be filled with guessed costs. OpenAI default p
 [official OpenAI pricing](https://developers.openai.com/api/docs/pricing); user overrides still win.
 
 Provider filtering applies before aggregation. A project represents an exact reported working
-folder across Claude Code and Codex; provider-specific session IDs prevent cross-tool collisions.
+folder across Claude Code, Codex, Copilot and OpenCode; provider-specific session IDs prevent cross-tool collisions.
 Claude hook/workflow and reported-tally features rely on Claude metadata and do not imply that
 Codex records those same facts.
 
@@ -237,3 +237,17 @@ scope. Sessions without token records are counted from their transcript activity
 excluded for having no request rows. Their presence is shown explicitly, even when no cost can be
 computed for the range. Injected Codex instructions do not count as human prompts; this changes
 prompt-based ratios but does not change recorded token totals.
+
+## OpenCode accounting
+
+OpenCode keeps sessions in a local SQLite database. Each assistant message records its model and a
+token breakdown: `input` (already excluding cache), `output`, `reasoning`, and cache `read`/`write`.
+Reasoning is reported *separately* from output, so the two are summed into output before pricing
+(they bill at the output rate) and reasoning is kept as a thinking-token detail. The cost OpenCode
+stores on a message is ignored in favour of the same price table every other tool uses; it is
+usually computed against its own model catalogue, or zero for subscription plans.
+
+As with Codex and Copilot, amounts are API list-price estimates. A message with output but no token
+record makes the session partial rather than free; failed or tool-only turns without usage add no
+request. Subagent (child) sessions are priced as agents of the session that spawned them. Hook,
+skill and workflow attribution do not exist in OpenCode data and are shown as unavailable.

@@ -6,6 +6,7 @@
  * their blocks are merged back into the first line of the message.
  */
 import { readVscodeCopilotLines } from '../copilot/vscode.js';
+import { isOpenCodePath, readOpenCodeSessionLines } from '../opencode/transcript.js';
 import { normalizeCopilotLine } from '../copilot/normalize.js';
 import { normalizeCodexLine } from '../codex/normalize.js';
 import type { DatabaseSync } from 'node:sqlite';
@@ -173,7 +174,9 @@ export async function getTranscriptPage(
     byteOffset: num(row, 'byteOffset'),
     byteLength: num(row, 'byteLength'),
   }));
-  const vscodeLines = sessionId.startsWith('copilot-vscode-') ? await readVscodeCopilotLines(source.filePath).catch(() => []) : undefined;
+  // Reconstructed sources (VS Code journals, OpenCode's SQLite store) address lines by virtual seq.
+  const vscodeLines = sessionId.startsWith('copilot-vscode-') ? await readVscodeCopilotLines(source.filePath).catch(() => [])
+    : isOpenCodePath(source.filePath) ? await readOpenCodeSessionLines(source.filePath).catch(() => []) : undefined;
   const lines = vscodeLines ? [] : await readLinesAt(source.filePath, ranges);
 
   const messages: TranscriptMessage[] = [];

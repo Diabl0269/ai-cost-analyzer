@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { resolveRoots } from '../../server/paths.js';
@@ -42,6 +42,19 @@ describe('transcript source selection', () => {
     expect(flags.reindex).toBe(true);
     expect(() => parseFlags(['--codex-dir'], {})).toThrow('invalid --codex-dir');
     expect(() => parseFlags(['--demo', '--codex-dir', '/synthetic/codex'], {})).toThrow('mutually exclusive');
+  });
+  it('selects OpenCode explicitly, honors XDG_DATA_HOME and keeps demos isolated', () => {
+    expect(resolveRoots({ opencodeDirFlag: '/synthetic/opencode', env: {} })).toEqual(['/synthetic/opencode']);
+    expect(resolveRoots({ claudeDirFlag: '/synthetic/claude', opencodeDirFlag: '/synthetic/opencode/opencode.db', env: {} })).toEqual(['/synthetic/claude', '/synthetic/opencode/opencode.db']);
+    expect(resolveRoots({ env: { CCA_OPENCODE_DIR: '/synthetic/data' } })).toEqual(['/synthetic/data']);
+    expect(resolveRoots({ claudeDirFlag: '/synthetic/demo', opencodeDirFlag: '', env: { CCA_OPENCODE_DIR: '/synthetic/real' } })).toEqual(['/synthetic/demo']);
+    const data = mkdtempSync(join(tmpdir(), 'cca-xdg-')); temporary.push(data);
+    expect(resolveRoots({ env: { XDG_DATA_HOME: data } })).not.toContain(join(data, 'opencode'));
+    mkdirSync(join(data, 'opencode')); writeFileSync(join(data, 'opencode', 'opencode.db'), '');
+    expect(resolveRoots({ env: { XDG_DATA_HOME: data } })).toContain(join(data, 'opencode'));
+    expect(parseFlags(['--opencode-dir', '/synthetic/opencode'], {}).opencodeDir).toBe('/synthetic/opencode');
+    expect(() => parseFlags(['--opencode-dir'], {})).toThrow('invalid --opencode-dir');
+    expect(() => parseFlags(['--demo', '--opencode-dir', '/synthetic/opencode'], {})).toThrow('mutually exclusive');
   });
   it('selects Copilot CLI/app and editor roots explicitly, honors COPILOT_HOME and keeps demos isolated', () => {
     expect(resolveRoots({ copilotDirFlag: '/synthetic/copilot', env: {} })).toEqual(['/synthetic/copilot/session-state']);

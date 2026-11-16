@@ -5,6 +5,7 @@
 import { parseVscodeCopilotTranscript } from '../copilot/vscode.js';
 import { parseCopilotTranscript } from '../copilot/transcript.js';
 import { parseCodexTranscript } from '../codex/transcript.js';
+import { parseOpenCodeTranscript } from '../opencode/transcript.js';
 import { readFile } from 'node:fs/promises';
 import { readJsonlLines } from '../jsonl.js';
 import type {
@@ -21,6 +22,8 @@ import { parseTranscript } from './transcript.js';
 export async function parseSession(d: DiscoveredSession): Promise<ParsedSession> {
   const parse = d.mainFile.sessionId.startsWith('copilot-vscode-')
     ? (file: DiscoveredFile, opts: { agentId: string | null }) => parseVscodeCopilotTranscript(file, opts.agentId)
+    : d.provider === 'opencode' || d.mainFile.provider === 'opencode'
+    ? (file: DiscoveredFile, opts: { agentId: string | null }) => parseOpenCodeTranscript(file, opts.agentId)
     : d.provider === 'copilot' || d.mainFile.provider === 'copilot'
     ? (file: DiscoveredFile, opts: { agentId: string | null }) => parseCopilotTranscript(file, opts.agentId)
     : d.provider === 'codex' || d.mainFile.provider === 'codex'

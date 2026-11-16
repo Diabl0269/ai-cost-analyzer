@@ -93,6 +93,7 @@ export function resolveTitle(input: TitleInput): ResolvedTitle {
     const title = value?.trim().slice(0, MAX_TITLE_CHARS);
     if (title) return { title, source };
   }
+  if (input.sessionId.startsWith('opencode-')) return { title: `OpenCode ${input.sessionId.slice('opencode-'.length)}`, source: 'session-id' };
   if (input.sessionId.startsWith('copilot-')) return { title: `Copilot ${input.sessionId.slice('copilot-'.length)}`, source: 'session-id' };
   return { title: input.sessionId.startsWith('codex-') ? `Codex ${input.sessionId.slice('codex-'.length)}` : input.sessionId.slice(0, 8), source: 'session-id' };
 }
