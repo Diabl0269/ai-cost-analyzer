@@ -31,6 +31,9 @@ eq(render(s).title, "$2.00 today ⟳", "title indexing")
 let r = render(summary(u(3, "recorded"), nil, ["codex": u(3, "recorded"), "claude": u(0, "recorded", s: 0)]))
 eq(r.items.filter { $0.text.hasPrefix("Codex") }.count, 1, "active provider listed")
 eq(r.items.filter { $0.text.hasPrefix("Claude") }.count, 0, "idle provider hidden")
+eq(refreshesSummary("event: sessionsChanged\ndata: {}"), true, "sessions changed refreshes")
+eq(refreshesSummary("event: indexed\ndata: {}"), true, "indexed refreshes")
+eq(refreshesSummary("event: ping\ndata: {}"), false, "ping does not refresh")
 // Decode from the API's JSON (extra fields ignored, null cost allowed).
 let json = #"{"periods":{"today":{"total":{"cost":null,"costStatus":"unavailable","tokens":{"total":0,"input":0},"sessions":1,"unavailableSessions":1,"partialSessions":0},"byProvider":{}},"week":{"total":{"cost":1.5,"costStatus":"recorded","tokens":{"total":9},"sessions":1,"unavailableSessions":0},"byProvider":{}}},"generatedAt":"x"}"#
 let dec = try? JSONDecoder().decode(Summary.self, from: Data(json.utf8))

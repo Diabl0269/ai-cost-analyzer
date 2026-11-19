@@ -110,4 +110,10 @@ func render(_ d: Summary) -> Rendered {
     return Rendered(title: title, items: out)
 }
 
+func refreshesSummary(_ frame: String) -> Bool {
+    frame.split(separator: "\n").contains { line in
+        line == "event: indexed" || line == "event: sessionsChanged"
+    }
+}
+
 let offlineTitle = "⚠ offline"

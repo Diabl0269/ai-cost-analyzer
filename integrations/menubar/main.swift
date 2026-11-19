@@ -102,11 +102,14 @@ func dump(_ c: Config) -> Never {
 }
 if rawArgs.contains("--dump") { dump(loadConfig(rawArgs)) }
 
-final class App: NSObject, NSApplicationDelegate {
+final class App: NSObject, NSApplicationDelegate, URLSessionDataDelegate {
     let config: Config
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     let session = URLSession(configuration: .ephemeral)
+    lazy var eventSession = URLSession(configuration: .ephemeral, delegate: self, delegateQueue: nil)
     var timer: Timer?
+    var eventTask: URLSessionDataTask?
+    var eventBuffer = Data()
     var last: Summary?
     var offline = false
     var started = false
@@ -117,8 +120,8 @@ final class App: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ n: Notification) {
         item.button?.title = "…"
         rebuild()
-        refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.refresh() }
+        fetchSummary(connectEvents: true)
+        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.fetchSummary(connectEvents: false) }
     }
 
     func request(_ path: String, post: Bool = false, _ done: @escaping (Data?) -> Void) {
@@ -130,15 +133,46 @@ final class App: NSObject, NSApplicationDelegate {
         }.resume()
     }
 
-    @objc func refresh() {
+    @objc func refresh() { fetchSummary(connectEvents: false) }
+
+    func fetchSummary(connectEvents: Bool) {
         request("/api/auth/session", post: true) { [weak self] ok in
             guard let self = self else { return }
             guard ok != nil else { return self.apply(nil) }
             self.request("/api/analytics/summary") { data in
                 let s = data.flatMap { try? JSONDecoder().decode(Summary.self, from: $0) }
                 self.apply(s)
+                if connectEvents { self.subscribeToEvents() }
             }
         }
+    }
+
+    func subscribeToEvents() {
+        eventTask?.cancel()
+        eventBuffer = Data()
+        var request = URLRequest(url: URL(string: base + "/api/events")!, timeoutInterval: 60 * 60)
+        if let cookies = session.configuration.httpCookieStorage?.cookies(for: request.url!) {
+            request.allHTTPHeaderFields = HTTPCookie.requestHeaderFields(with: cookies)
+        }
+        eventTask = eventSession.dataTask(with: request)
+        eventTask?.resume()
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        eventBuffer.append(data)
+        while let separator = eventBuffer.range(of: Data("\n\n".utf8)) {
+            let frame = eventBuffer.prefix(upTo: separator.lowerBound)
+            eventBuffer.removeSubrange(..<separator.upperBound)
+            guard let text = String(data: frame, encoding: .utf8) else { continue }
+            if refreshesSummary(text) {
+                DispatchQueue.main.async { self.fetchSummary(connectEvents: false) }
+            }
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard session === eventSession, task === eventTask else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.subscribeToEvents() }
     }
 
     func apply(_ s: Summary?) {

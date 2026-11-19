@@ -175,7 +175,7 @@ export default function SummaryTab() {
             caption={(summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') ? 'Receipt — API-price estimate' : 'Receipt — exact'}
             rows={[
               ...toReceiptRows(exactAmounts(summary.cost), (amount) => <Money usd={amount} />),
-              { id: 'total', label: 'Session total', value: <Money usd={summary.cost.total} display />, emphasis: 'total' },
+              { id: 'total', label: 'Session total', value: summary.unpriced && summary.cost.total === 0 ? <span className="muted">Unpriced</span> : <Money usd={summary.cost.total} display />, emphasis: 'total' },
             ]}
             footer={
               <span className={styles.footNote}>
@@ -193,7 +193,7 @@ export default function SummaryTab() {
             caption="Where the work happened"
             rows={[
               ...toReceiptRows(delegationAmounts(detail), (amount) => <Money usd={amount} />),
-              { id: 'total', label: 'Session total', value: <Money usd={summary.cost.total} />, emphasis: 'total' },
+              { id: 'total', label: 'Session total', value: summary.unpriced && summary.cost.total === 0 ? <span className="muted">Unpriced</span> : <Money usd={summary.cost.total} />, emphasis: 'total' },
             ]}
           />
           {(summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') ? <p className={styles.tallyNote}>This provider does not report a Claude Code cost-state tally. API list-price estimates cannot be reconciled with a subscription bill.</p> : reported ? (
