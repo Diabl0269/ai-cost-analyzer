@@ -305,6 +305,7 @@ export function toRequestCost(row: RequestCostRow): RequestCost {
     speed: row.speed,
     isFallback: row.isFallback,
     unpriced: row.resolved.unpriced,
+    ...(row.resolved.estimated ? { estimated: true } : {}),
     attribution: row.attribution,
     toolNames: row.toolNames,
   };

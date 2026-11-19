@@ -20,6 +20,9 @@ import type {
   ModelCostRow,
   ModelsAnalyticsResponse,
   PricingConfig,
+  Provider,
+  SummaryUsage,
+  UsageCostStatus,
   Speed,
   ToolAnalyticsRow,
   ToolsAnalyticsResponse,
@@ -27,7 +30,7 @@ import type {
   UserSettings,
 } from '../types.js';
 import type { PriceResolver } from '../pricing/resolve.js';
-import { addBreakdown, addUsageToTotals, costOfUsage, emptyBreakdown, emptyTokenTotals } from '../pricing/money.js';
+import { addBreakdown, addUsageToTotals, costOfUsage, emptyBreakdown, estimatedCostOf, emptyTokenTotals } from '../pricing/money.js';
 import { COLD_CACHE_CONTEXT_TOKENS } from '../cost/price-at-read.js';
 import type {
   InsightHookRow,
@@ -37,7 +40,7 @@ import type {
   InsightsInput,
 } from '../cost/insights.js';
 import type { ContextItemCost, InjectionCost, ToolCallCost } from '../types.js';
-import type { DateRange, SqlScope } from './filters.js';
+import { sessionScope, type DateRange, type SqlScope } from './filters.js';
 import {
   CONTEXT_ITEM_COLUMNS,
   INJECTION_COLUMNS,
@@ -626,7 +629,7 @@ export function buildInsightsInput(ctx: AnalyticsContext, totalCost: number): In
   const sessionRows = ctx.db
     .prepare(
       `SELECT s.id AS id, s.title AS title, s.projectId AS projectId,
-        COALESCE(p.path, s.cwd, s.projectId) AS projectPath, s.promptCount AS promptCount
+        COALESCE(p.path, s.cwd, s.projectId) AS projectPath, s.promptCount AS promptCount, s.provider AS provider
        FROM sessions s${ctx.scope.sql}`,
     )
     .all(...ctx.scope.params) as Row[];
@@ -651,6 +654,7 @@ export function buildInsightsInput(ctx: AnalyticsContext, totalCost: number): In
     const usage = usageOf(row, ctx.pricing);
     const resolved = ctx.resolve(str(row, 'model'), flagsOf(row));
     const cost = costOfUsage(usage, resolved, ctx.pricing.webSearchPer1000).total;
+    const estimatedCost = estimatedCostOf(usage, resolved, ctx.pricing.webSearchPer1000);
     sessionModels.push({
       sessionId,
       title: titles.get(sessionId) ?? sessionId,
@@ -660,6 +664,8 @@ export function buildInsightsInput(ctx: AnalyticsContext, totalCost: number): In
       requests: num(row, 'requests'),
       cost,
       usage,
+      unpriced: resolved.unpriced,
+      ...(resolved.estimated ? { estimatedCost } : {}),
     });
     costBySession.set(sessionId, (costBySession.get(sessionId) ?? 0) + cost);
     requestsBySession.set(sessionId, (requestsBySession.get(sessionId) ?? 0) + num(row, 'requests'));
@@ -686,6 +692,7 @@ export function buildInsightsInput(ctx: AnalyticsContext, totalCost: number): In
       coldCacheCost: totals?.coldCacheCost ?? 0,
       idleGapExpiries: totals?.idleGapExpiries ?? 0,
       idleGapCost: totals?.idleGapCost ?? 0,
+      ...(SUMMARY_PROVIDERS.includes(str(row, 'provider') as Provider) ? { provider: str(row, 'provider') as Provider } : {}),
     };
   });
 
@@ -779,4 +786,94 @@ export function requestCountsByProject(ctx: AnalyticsContext): Map<string, numbe
     )
     .all(...rangeParams(ctx)) as Row[];
   return new Map(rows.map((row) => [str(row, 'projectId'), num(row, 'n')]));
+}
+
+const SUMMARY_PROVIDERS: readonly Provider[] = ['claude', 'codex', 'copilot', 'opencode'];
+
+/** One provider's usage in `ctx.range`. `ctx` must already be scoped to that provider. */
+export function summaryUsage(ctx: AnalyticsContext, provider: Provider): SummaryUsage {
+  const rows = modelRowsInRange(ctx);
+  const { cost, tokens } = totalsFromModelRows(rows);
+  const sessions = rangeCounts(ctx).sessions;
+  const coverageScope = sessionScope({ provider }, ctx.settings);
+  const coverage = ctx.db
+    .prepare(
+      `SELECT SUM(CASE WHEN s.requestCount = 0 THEN 1 ELSE 0 END) AS unavailable,
+        SUM(CASE WHEN s.requestCount > 0 THEN 1 ELSE 0 END) AS partial
+       FROM sessions s WHERE s.usageIncomplete = 1
+        AND s.id IN (SELECT s.id FROM sessions s${coverageScope.sql})
+        AND (s.startedDate BETWEEN ? AND ? OR EXISTS (
+          SELECT 1 FROM messages m WHERE m.sessionId = s.id AND m.dateLocal BETWEEN ? AND ?))`,
+    )
+    .get(...coverageScope.params, ctx.range.from, ctx.range.to, ctx.range.from, ctx.range.to) as Row;
+  const unavailableSessions = num(coverage, 'unavailable');
+  const partialSessions = num(coverage, 'partial');
+  const cacheWrite = tokens.cache5m + tokens.cache1h;
+  const total = tokens.input + tokens.output + tokens.cacheRead + cacheWrite;
+  const hasUsage = rows.length > 0 && total > 0;
+  const unpricedRows = rows.some((row) => row.unpriced);
+  const estimatedCost = rows.reduce((sum, row) => sum + (row.estimatedCost ?? 0), 0);
+
+  let costStatus: UsageCostStatus;
+  if (!hasUsage && unavailableSessions > 0) costStatus = 'unavailable';
+  else if (hasUsage && unpricedRows && cost.total === 0) costStatus = 'unpriced';
+  else if (unpricedRows || partialSessions > 0 || unavailableSessions > 0) costStatus = 'partial';
+  else costStatus = 'recorded';
+
+  return {
+    cost: costStatus === 'unavailable' || costStatus === 'unpriced' ? null : cost.total,
+    costStatus,
+    ...(estimatedCost > 0 ? { estimatedCost } : {}),
+    tokens: { input: tokens.input, output: tokens.output, cacheRead: tokens.cacheRead, cacheWrite, total },
+    sessions,
+    unavailableSessions,
+    partialSessions,
+  };
+}
+
+/** Sums provider usage; the total is unknown only when no provider with usage has a known cost. */
+export function combineSummaryUsage(parts: readonly SummaryUsage[]): SummaryUsage {
+  const out: SummaryUsage = {
+    cost: 0,
+    costStatus: 'recorded',
+    tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    sessions: 0,
+    unavailableSessions: 0,
+    partialSessions: 0,
+  };
+  let known = 0;
+  let degraded = 0;
+  let active = 0;
+  for (const part of parts) {
+    out.tokens.input += part.tokens.input;
+    out.tokens.output += part.tokens.output;
+    out.tokens.cacheRead += part.tokens.cacheRead;
+    out.tokens.cacheWrite += part.tokens.cacheWrite;
+    out.tokens.total += part.tokens.total;
+    if (part.estimatedCost) out.estimatedCost = (out.estimatedCost ?? 0) + part.estimatedCost;
+    out.sessions += part.sessions;
+    out.unavailableSessions += part.unavailableSessions;
+    out.partialSessions += part.partialSessions;
+    const idle = part.costStatus === 'recorded' && part.sessions === 0 && part.tokens.total === 0;
+    if (idle) continue;
+    active++;
+    if (part.cost !== null) {
+      out.cost = (out.cost ?? 0) + part.cost;
+      known++;
+    }
+    if (part.costStatus !== 'recorded') degraded++;
+  }
+  if (active > 0 && known === 0) {
+    out.cost = null;
+    out.costStatus = parts.every((p) => p.costStatus === 'unavailable' || (p.costStatus === 'recorded' && p.sessions === 0 && p.tokens.total === 0))
+      ? 'unavailable'
+      : 'unpriced';
+  } else if (degraded > 0) {
+    out.costStatus = 'partial';
+  }
+  return out;
+}
+
+export function emptySummaryProviders(): Provider[] {
+  return [...SUMMARY_PROVIDERS];
 }

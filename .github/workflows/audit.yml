@@ -1,0 +1,21 @@
+name: audit
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci
+      # npm audit exits non-zero on an endpoint error too, so an unreachable audit service fails the job.
+      - name: Audit runtime dependencies (high and above)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audit all dependencies (critical)
+        run: npm audit --audit-level=critical

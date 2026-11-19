@@ -154,6 +154,9 @@ export function costDriver(detail: SessionDetail): string | null {
   }
 }
 
+export { tokenCostShares } from '@/lib/token-shares';
+export type { ShareClassId, TokenCostShare, TokenCostShares } from '@/lib/token-shares';
+
 export function toReceiptRows(amounts: LabelledAmount[], render: (amount: number) => ReceiptRow['value']): ReceiptRow[] {
   return amounts.map((amount) => ({ id: amount.id, label: amount.label, value: render(amount.amount) }));
 }

@@ -41,8 +41,8 @@ Automatically, in three steps.
 A root the operating system refuses to watch is skipped with a warning instead of crashing the
 server; changes under it are picked up on the next start or manual re-index.
 
-Manual re-indexing covers what automation cannot: **Settings › Data** offers *Re-index changed
-files* and *Rebuild from scratch*, the command palette has the same two, and
+Manual re-indexing covers what automation cannot: **Settings › Data** offers *Re-scan all
+roots* and *Rebuild from scratch*, the command palette has the same two, and
 `npm run reindex` (the built server with `--reindex`) rebuilds from the terminal and exits. Reach for it after pointing
 the app at a different transcript root, or if a session on disk never appears. A schema change
 needs nothing — the index is a cache keyed by a schema version, and a mismatch rebuilds it on the

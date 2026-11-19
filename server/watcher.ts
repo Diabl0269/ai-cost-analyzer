@@ -5,12 +5,13 @@
  * than crashing the server). Debounces per-file for a quiet period so an in-progress write
  * doesn't trigger a reparse mid-write.
  */
-import { watch, type FSWatcher } from 'node:fs';
+import { statSync, watch, type FSWatcher } from 'node:fs';
 import { join } from 'node:path';
 import { directoryExists } from './paths.js';
 import { hasOpenCodeDatabase } from './opencode-paths.js';
 
 const QUIET_PERIOD_MS = 3_000;
+const OPENCODE_POLL_MS = 5_000;
 const RELEVANT_SUFFIXES = ['.jsonl', '.meta.json', 'custom-title.json', 'opencode.db', 'opencode.db-wal'];
 
 export interface WatcherDeps {
@@ -28,10 +29,40 @@ function isRelevant(filename: string): boolean {
   return RELEVANT_SUFFIXES.some((suffix) => filename.endsWith(suffix));
 }
 
+/**
+ * OpenCode appends to its SQLite write-ahead log in place, and macOS file-system events do not
+ * report those writes, so fs.watch alone leaves new sessions unindexed. Poll size/mtime instead.
+ */
+function pollOpenCode(root: string, onChanged: (path: string) => void): NodeJS.Timeout {
+  const files = ['opencode.db', 'opencode.db-wal'].map((name) => join(root, name));
+  const seen = new Map<string, string>();
+  const stamp = (file: string): string => {
+    try {
+      const st = statSync(file);
+      return `${st.size}:${st.mtimeMs}`;
+    } catch {
+      return '';
+    }
+  };
+  for (const file of files) seen.set(file, stamp(file));
+  const timer = setInterval(() => {
+    for (const file of files) {
+      const now = stamp(file);
+      if (now !== seen.get(file)) {
+        seen.set(file, now);
+        onChanged(file);
+      }
+    }
+  }, OPENCODE_POLL_MS);
+  timer.unref();
+  return timer;
+}
+
 /** Starts a watcher on each root; roots that don't exist are logged and skipped. */
 export function startWatcher(roots: string[], deps: WatcherDeps): Watcher {
   const log = deps.log ?? ((message: string) => console.warn(message));
   const watchers: FSWatcher[] = [];
+  const pollers: NodeJS.Timeout[] = [];
   const pendingTimers = new Map<string, NodeJS.Timeout>();
   const settledBatch = new Set<string>();
   let flushTimer: NodeJS.Timeout | undefined;
@@ -77,6 +108,7 @@ export function startWatcher(roots: string[], deps: WatcherDeps): Watcher {
         log(`watcher: error on root ${root}: ${err instanceof Error ? err.name : 'unknown error'}`);
       });
       watchers.push(watcher);
+      if (hasOpenCodeDatabase(root)) pollers.push(pollOpenCode(root, onFileChanged));
     } catch (err) {
       log(`watcher: failed to start on root ${root}: ${err instanceof Error ? err.name : 'unknown error'}`);
     }
@@ -84,6 +116,7 @@ export function startWatcher(roots: string[], deps: WatcherDeps): Watcher {
 
   return {
     dispose(): void {
+      for (const poller of pollers) clearInterval(poller);
       for (const timer of pendingTimers.values()) clearTimeout(timer);
       pendingTimers.clear();
       if (flushTimer) clearTimeout(flushTimer);

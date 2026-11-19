@@ -3,7 +3,7 @@
  * synthetic session ("sess-1") is enough to exercise every route's happy path, 404 handling,
  * and CSV/JSON export shape.
  */
-import type { Store, QueryContext, StoreStatus } from '../../core/store.js';
+import type { Store, QueryContext, StoreStatus, StoreSummary } from '../../core/store.js';
 import type {
   AgentTreeResponse,
   AttributionAnalyticsResponse,
@@ -22,6 +22,9 @@ import type {
   SessionSummary,
   SessionsQuery,
   SessionsResponse,
+  SummaryPeriod,
+  SummaryUsage,
+  UsageCostStatus,
   ToolsAnalyticsResponse,
   TokenTotals,
   TranscriptPage,
@@ -237,6 +240,32 @@ export class FakeStore implements Store {
       budget: { monthlyBudgetUsd: null, month: '2026-09', spent: 0, forecast: 0, daysElapsed: 7, daysInMonth: 30 },
       insights: [],
       unpricedModels: [],
+    });
+  }
+
+  summary(_ctx: QueryContext): Promise<StoreSummary> {
+    const usage = (cost: number | null, status: UsageCostStatus): SummaryUsage => ({
+      cost,
+      costStatus: status,
+      tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      sessions: 0,
+      unavailableSessions: 0,
+      partialSessions: 0,
+    });
+    const period = (): SummaryPeriod => ({
+      range: { from: '2026-09-07', to: '2026-09-07' },
+      total: usage(0, 'recorded'),
+      byProvider: {
+        claude: usage(0, 'recorded'),
+        codex: usage(null, 'unavailable'),
+        copilot: usage(0, 'recorded'),
+        opencode: usage(0, 'recorded'),
+      },
+    });
+    return Promise.resolve({
+      generatedAt: '2026-09-07T12:00:00.000Z',
+      periods: { today: period(), week: period() },
+      budget: { monthlyBudgetUsd: null, month: '2026-09', spent: 0, forecast: 0, daysElapsed: 7, daysInMonth: 30 },
     });
   }
 

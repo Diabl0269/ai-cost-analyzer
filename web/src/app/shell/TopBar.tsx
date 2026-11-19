@@ -5,6 +5,8 @@ import { IconButton } from '@/components/IconButton';
 import { DateRange } from '@/components/DateRange';
 import { Select } from '@/components/Select';
 import { useDateRange } from '@/lib/range';
+import { PROVIDERS } from '@/lib/provider';
+import { useSettings } from '@/lib/queries';
 import { GlobalSearch } from './GlobalSearch';
 import { ThemeToggle } from './ThemeToggle';
 import { IndexStatusPill } from './IndexStatusPill';
@@ -49,6 +51,7 @@ export function TopBar({
   firstRun,
 }: TopBarProps) {
   const range = useDateRange();
+  const hiddenProviders = useSettings().data?.hiddenProviders ?? [];
   const location = useLocation();
   const compactRange = useMediaQuery(COMPACT_RANGE);
   const noRange = useMediaQuery(NO_RANGE);
@@ -78,7 +81,9 @@ export function TopBar({
       <div className={styles.right}>
         <Select className={styles.provider} label="Provider" hideLabel value={range.provider ?? ''}
           onChange={(value) => range.setProvider(value === 'claude' || value === 'codex' || value === 'copilot' || value === 'opencode' ? value : undefined)}
-          options={[{ value: '', label: 'All providers' }, { value: 'claude', label: 'Claude' }, { value: 'codex', label: 'Codex' }, { value: 'copilot', label: 'Copilot' }, { value: 'opencode', label: 'OpenCode' }]} />
+          options={[{ value: '', label: 'All providers' }, ...PROVIDERS
+            .filter((provider) => provider.value === range.provider || !hiddenProviders.includes(provider.value))
+            .map((provider) => ({ value: provider.value, label: provider.label }))]} />
         {/* Below 720px this moves into the rail: see `LeftRail`'s range slot. */}
         {noRange || firstRun ? null : (
           <div className={styles.range}>

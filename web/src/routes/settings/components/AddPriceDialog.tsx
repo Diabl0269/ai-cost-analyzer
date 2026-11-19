@@ -35,13 +35,19 @@ export interface AddPriceDialogProps {
   existingKeys: ReadonlySet<string>;
   onClose: () => void;
   onAdd: (price: ModelPrice) => void;
+  /** priced rows an unknown model may be estimated as; enables the "Estimate as…" option */
+  targets?: readonly ModelPrice[];
+  /** records `estimateAs[modelId] = targetKey`; the model itself stays unpriced */
+  onEstimate?: (modelId: string, targetKey: string) => void;
 }
 
 /**
  * Adds a price row for a model the table cannot match. The match prefix is prefilled from the
  * id the indexer actually saw, so saving once is enough to price every request that used it.
  */
-export function AddPriceDialog({ model, existingKeys, onClose, onAdd }: AddPriceDialogProps) {
+export function AddPriceDialog({ model, existingKeys, onClose, onAdd, targets = [], onEstimate }: AddPriceDialogProps) {
+  const [estimating, setEstimating] = useState(false);
+  const [targetKey, setTargetKey] = useState('');
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
   const [key, setKey] = useState('');
   const [label, setLabel] = useState('');
@@ -56,6 +62,8 @@ export function AddPriceDialog({ model, existingKeys, onClose, onAdd }: AddPrice
 
   useEffect(() => {
     if (!model) return;
+    setEstimating(false);
+    setTargetKey(targets[0]?.key ?? '');
     const normalized = normalizeModelId(model);
     setKey(suggestKey(model, existingKeys));
     setLabel(normalized);
@@ -67,6 +75,7 @@ export function AddPriceDialog({ model, existingKeys, onClose, onAdd }: AddPrice
     setCacheWrite1h(0);
     setCacheRead(0);
     setCharsPerToken(3.1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, existingKeys]);
 
   const problem = useMemo(() => {
@@ -78,7 +87,14 @@ export function AddPriceDialog({ model, existingKeys, onClose, onAdd }: AddPrice
     return null;
   }, [key, label, match, charsPerToken, existingKeys]);
 
+  const submitEstimate = (): void => {
+    if (!model || !targetKey || !onEstimate) return;
+    onEstimate(normalizeModelId(model), targetKey);
+    onClose();
+  };
+
   const submit = (): void => {
+    if (estimating) return submitEstimate();
     if (problem) return;
     onAdd({
       key: key.trim(),
@@ -104,8 +120,8 @@ export function AddPriceDialog({ model, existingKeys, onClose, onAdd }: AddPrice
     <Dialog
       open={model !== null}
       onClose={onClose}
-      title="Add a price"
-      description={model ? `Prices are USD per million tokens. Requests billed as ${model} will use this row once you save.` : undefined}
+      title={estimating ? 'Estimate as another model' : 'Add a price'}
+      description={model && estimating ? `${model} stays unpriced. Its tokens are costed at the chosen model's list prices as a separate, labeled estimate that never joins recorded cost.` : model ? `Prices are USD per million tokens. Requests billed as ${model} will use this row once you save.` : undefined}
       size="lg"
       initialFocusRef={firstFieldRef}
       footer={
@@ -113,12 +129,27 @@ export function AddPriceDialog({ model, existingKeys, onClose, onAdd }: AddPrice
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={submit} disabled={problem !== null}>
-            Add to the table
+          {onEstimate && targets.length > 0 ? (
+            <Button variant="secondary" onClick={() => setEstimating((value) => !value)}>
+              {estimating ? 'Add a price instead' : 'Estimate as…'}
+            </Button>
+          ) : null}
+          <Button variant="primary" onClick={submit} disabled={estimating ? !targetKey : problem !== null}>
+            {estimating ? 'Save estimate' : 'Add to the table'}
           </Button>
         </>
       }
     >
+      {estimating ? (
+        <div className={styles.dialogFields}>
+          <Select
+            label="Bill as"
+            value={targetKey}
+            onChange={setTargetKey}
+            options={targets.map((entry) => ({ value: entry.key, label: entry.label }))}
+          />
+        </div>
+      ) : (
       <div className={styles.dialogFields}>
         <label className={styles.textField}>
           <span className={styles.textLabel}>Label</span>
@@ -145,7 +176,8 @@ export function AddPriceDialog({ model, existingKeys, onClose, onAdd }: AddPrice
         <NumberField label="Cache write 1h" value={cacheWrite1h} onChange={setCacheWrite1h} min={0} step={0.1} prefix="$" />
         <NumberField label="Cache read" value={cacheRead} onChange={setCacheRead} min={0} step={0.01} prefix="$" />
       </div>
-      {problem ? (
+      )}
+      {problem && !estimating ? (
         <p role="status" className="ui-xs" style={{ color: 'var(--cost)', marginTop: 'var(--s3)' }}>
           {problem}
         </p>

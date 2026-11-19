@@ -38,10 +38,12 @@ const ALWAYS_SKIP_DIRS = new Set([".git"]);
  * directory patterns, "*"-glob basename patterns, and bare literal names.
  * Not a full gitignore implementation - sufficient for this repo's file. */
 function loadGitignore(root) {
-  const p = path.join(root, ".gitignore");
-  if (!existsSync(p)) return [];
-  return readFileSync(p, "utf8")
-    .split("\n")
+  // .git/info/exclude holds local-only ignores (e.g. unrelated untracked
+  // sibling projects checked out inside the working tree).
+  const files = [path.join(root, ".gitignore"), path.join(root, ".git", "info", "exclude")];
+  return files
+    .filter((p) => existsSync(p))
+    .flatMap((p) => readFileSync(p, "utf8").split("\n"))
     .map((l) => l.trim())
     .filter((l) => l && !l.startsWith("#"));
 }

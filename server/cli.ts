@@ -15,6 +15,8 @@ import { runIndex } from '../core/db/indexer.js';
 import { FTS5_REQUIRED_MESSAGE, SqliteFeatureError } from '../core/db/schema.js';
 import { generateDemoData } from '../core/demo/generate.js';
 import type { IndexProgress } from '../core/types.js';
+import { runAutostart, probeServer } from './autostart.js';
+import { runMenubar } from './menubar.js';
 import { ConfigStore } from './config.js';
 import type { Flags } from './cli-flags.js';
 import { parseFlags } from './cli-flags.js';
@@ -74,10 +76,27 @@ function openBrowser(url: string): void {
 }
 
 async function main(): Promise<void> {
-  const flags = parseFlags(process.argv.slice(2), process.env);
+  const argv = process.argv.slice(2);
+  if (argv[0] === 'autostart') {
+    await runAutostart(argv.slice(1));
+    return;
+  }
+  if (argv[0] === 'menubar') {
+    await runMenubar(argv.slice(1));
+    return;
+  }
+  const flags = parseFlags(argv, process.env);
 
   if (flags.reindex) {
     await runReindexAndExit(flags);
+    return;
+  }
+
+  // Already running (e.g. via autostart): just show it instead of failing on EADDRINUSE.
+  if (!flags.demo && (await probeServer(flags.port))) {
+    const url = `http://127.0.0.1:${flags.port}`;
+    console.log(`AI Cost Analyzer is already running: ${url}`);
+    if (flags.open) openBrowser(url);
     return;
   }
 

@@ -17,7 +17,7 @@ import type {
 } from '../types.js';
 import { compareReported, computedTokenClasses } from '../cost/reported.js';
 import type { PriceResolver } from '../pricing/resolve.js';
-import { addBreakdown, addUsageToTotals, costOfUsage, emptyBreakdown, emptyTokenTotals } from '../pricing/money.js';
+import { addBreakdown, addUsageToTotals, costOfUsage, estimatedCostOf, emptyBreakdown, emptyTokenTotals } from '../pricing/money.js';
 import { jsonColumn, num, optStr, str, type Row } from './rows.js';
 import { flagsOf, usageOf } from './price-index.js';
 import { MAIN_AGENT } from './write-session.js';
@@ -32,6 +32,8 @@ export interface SessionCostBundle {
   requests: number;
   models: string[];
   unpriced: boolean;
+  estimatedCost: number;
+  estimatedAs?: string;
 }
 
 function emptyBundle(): SessionCostBundle {
@@ -44,6 +46,7 @@ function emptyBundle(): SessionCostBundle {
     requests: 0,
     models: [],
     unpriced: false,
+    estimatedCost: 0,
   };
 }
 
@@ -108,6 +111,8 @@ export function loadSessionCosts(
     addBreakdown(bundle.cost, cost);
     bundle.requests += num(row, 'requests');
     if (resolved.unpriced) bundle.unpriced = true;
+    bundle.estimatedCost += estimatedCostOf(usage, resolved, pricing.webSearchPer1000);
+    if (resolved.estimatedAs) bundle.estimatedAs = resolved.estimatedAs;
     if (agentId === MAIN_AGENT) bundle.costMain += cost.total;
     else if (workflow.has(`${sessionId} ${agentId}`)) bundle.costWorkflows += cost.total;
     else bundle.costAgents += cost.total;
@@ -169,6 +174,7 @@ export function groupModelRows(
       addUsageToTotals(existing.tokens, usage);
       addBreakdown(existing.cost, cost);
       existing.unpriced = existing.unpriced || resolved.unpriced;
+      if (resolved.estimated) existing.estimatedCost = (existing.estimatedCost ?? 0) + estimatedCostOf(usage, resolved, pricing.webSearchPer1000);
     } else {
       const tokens = emptyTokenTotals();
       addUsageToTotals(tokens, usage);
@@ -181,6 +187,9 @@ export function groupModelRows(
         tokens,
         cost,
         unpriced: resolved.unpriced,
+        ...(resolved.estimated
+          ? { estimatedCost: estimatedCostOf(usage, resolved, pricing.webSearchPer1000), estimatedAs: resolved.estimatedAs! }
+          : {}),
       });
     }
   }
@@ -248,6 +257,7 @@ export function toSessionSummary(
     reportedCostUsd: options.rangeScoped || row['reportedCostUsd'] === null ? null : num(row, 'reportedCostUsd'),
     pinned: settings.pinnedSessionIds.includes(str(row, 'id')),
     unpriced: bundle.unpriced,
+    ...(bundle.estimatedCost > 0 ? { estimatedCost: bundle.estimatedCost, ...(bundle.estimatedAs ? { estimatedAs: bundle.estimatedAs } : {}) } : {}),
   };
   const entrypoint = optStr(row, 'entrypoint');
   if (entrypoint) summary.entrypoint = entrypoint;

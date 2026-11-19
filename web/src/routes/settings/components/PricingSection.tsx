@@ -453,6 +453,13 @@ export function PricingSection() {
       <AddPriceDialog
         model={adding}
         existingKeys={existingKeys}
+        targets={config?.models.filter((m) => !m.custom && !m.retired) ?? []}
+        onEstimate={(modelId, targetKey) =>
+          setDraft((current) => {
+            const base = current ?? pricing.data;
+            return base ? { ...base, estimateAs: { ...base.estimateAs, [modelId]: targetKey } } : current;
+          })
+        }
         onClose={() => setAdding(null)}
         onAdd={(price) =>
           setDraft((current) => {

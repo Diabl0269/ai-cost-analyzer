@@ -42,6 +42,7 @@ const HEADER = [
   'costStatus',
   'usageIncomplete',
   'unpriced',
+  'estimatedCostUsd',
 ];
 
 /** Cell openers a spreadsheet reads as the start of a formula rather than as text. */
@@ -77,7 +78,8 @@ export function sessionsToCsv(sessions: readonly SessionSummary[]): string {
   for (const s of sessions) {
     const unavailable = hasNoRecordedUsage(s);
     const whollyUnpriced = s.unpriced && s.cost.total === 0;
-    const costStatus = unavailable ? 'unavailable' : whollyUnpriced ? 'unpriced'
+    const estimated = s.estimatedCost ?? 0;
+    const costStatus = unavailable ? 'unavailable' : whollyUnpriced ? (estimated > 0 ? 'estimated' : 'unpriced')
       : s.usageIncomplete || s.unpriced ? 'partial' : 'recorded';
     // Preserve known partial subtotals, but never turn an absent price or usage into free usage.
     const calculatedMoney = (value: number): string => unavailable || whollyUnpriced ? '' : money(value);
@@ -114,6 +116,7 @@ export function sessionsToCsv(sessions: readonly SessionSummary[]): string {
         csvText(costStatus),
         csvField(String(s.usageIncomplete === true)),
         csvField(String(s.unpriced)),
+        csvField(unavailable || estimated <= 0 ? '' : money(estimated)),
       ].join(','),
     );
   }

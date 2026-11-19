@@ -1,5 +1,5 @@
 import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { DiscoveredSession, IndexProgress, ParsedSession, PricingConfig, UserSettings } from '../../../core/types.js';
@@ -230,13 +230,111 @@ describe('parser cache upgrades', () => {
     expect(getMeta(check, META_PARSER_VERSION)).toBe(PARSER_VERSION); check.close();
   });
 
-  it('does not certify a parser upgrade when a whole session fails', async () => {
+  it('stamps the parser version even when a whole session fails, without escalating to full re-parses', async () => {
     const fixture = buildFixture(root);
     const opts = { roots: [root], dbPath, pricing, ...deps(fixture.session) };
     await runIndex(opts);
     const db = openDatabase(dbPath); setMeta(db, META_PARSER_VERSION, 'old'); db.close();
     const result = await runIndex({ ...opts, parse: async () => { throw new Error('Synthetic parse failure'); } });
     expect(result.sessionsFailed).toBe(1);
-    const check = openDatabase(dbPath); expect(getMeta(check, META_PARSER_VERSION)).toBe('old'); check.close();
+    const check = openDatabase(dbPath); expect(getMeta(check, META_PARSER_VERSION)).toBe(PARSER_VERSION); check.close();
+  });
+});
+
+describe('session failure records', () => {
+  const failing = (calls: { n: number }) => async (): Promise<ParsedSession> => {
+    calls.n += 1;
+    throw new TypeError('Synthetic bad record');
+  };
+
+  it('records a parse failure, still indexes the others and stamps the version', async () => {
+    const good = buildFixture(root);
+    const bad = buildFixture(root);
+    const badDiscovered = { ...bad.discovered, sessionId: 'bad-session' };
+    const result = await runIndex({
+      roots: [root],
+      dbPath,
+      pricing,
+      discover: async () => [badDiscovered, good.session.discovered],
+      parse: async (s) => {
+        if (s.sessionId === 'bad-session') throw new TypeError('Synthetic bad record');
+        return good.session;
+      },
+    });
+    expect(result.sessionsIndexed).toBe(1);
+    expect(result.sessionsFailed).toBe(1);
+    expect(result.failures).toEqual([
+      expect.objectContaining({ sessionId: 'bad-session', phase: 'parse', error: 'TypeError: Synthetic bad record' }),
+    ]);
+    const db = openDatabase(dbPath);
+    expect(getMeta(db, META_PARSER_VERSION)).toBe(PARSER_VERSION);
+    db.close();
+  });
+
+  it('skips a known failure while its files are unchanged, and retries on touch, full and version change', async () => {
+    const fixture = buildFixture(root);
+    const calls = { n: 0 };
+    const opts = { roots: [root], dbPath, pricing, discover: async () => [fixture.discovered], parse: failing(calls) };
+    const first = await runIndex(opts);
+    expect(first.sessionsFailed).toBe(1);
+    expect(calls.n).toBe(1);
+
+    const second = await runIndex(opts);
+    expect(calls.n).toBe(1);
+    expect(second.sessionsFailed).toBe(0);
+    expect(second.sessionsSkippedFailed).toBe(1);
+    expect(second.failures).toHaveLength(1);
+
+    const touched = buildFixture(root, 1_757_000_999_000);
+    await runIndex({ ...opts, discover: async () => [touched.discovered] });
+    expect(calls.n).toBe(2);
+
+    await runIndex({ ...opts, discover: async () => [touched.discovered], full: true });
+    expect(calls.n).toBe(3);
+
+    await runIndex({ ...opts, discover: async () => [touched.discovered] });
+    expect(calls.n).toBe(3);
+    const db = openDatabase(dbPath); setMeta(db, META_PARSER_VERSION, 'old'); db.close();
+    await runIndex({ ...opts, discover: async () => [touched.discovered] });
+    expect(calls.n).toBe(4);
+  });
+
+  it('clears a failure once the session indexes', async () => {
+    const fixture = buildFixture(root);
+    const calls = { n: 0 };
+    await runIndex({ roots: [root], dbPath, pricing, discover: async () => [fixture.discovered], parse: failing(calls) });
+    const touched = buildFixture(root, 1_757_000_999_000);
+    await runIndex({ roots: [root], dbPath, pricing, ...deps(touched.session) });
+    const after = await runIndex({ roots: [root], dbPath, pricing, ...deps(touched.session) });
+    expect(after.failures).toEqual([]);
+    expect(after.sessionsSkippedFailed).toBe(0);
+  });
+
+  it('records a write-phase failure and keeps the home directory out of paths', async () => {
+    const fixture = buildFixture(root);
+    const broken = structuredClone(fixture.session);
+    (broken.main as unknown as { requests: unknown }).requests = null;
+    const result = await runIndex({ roots: [root], dbPath, pricing, ...deps(broken) });
+    expect(result.sessionsFailed).toBe(1);
+    expect(result.failures?.[0]).toMatchObject({ phase: 'write' });
+    expect(JSON.stringify(result.failures)).not.toContain(homedir() === '/' ? '\0' : homedir());
+  });
+
+  it('reports home-relative, capped discovery warnings without failing the run', async () => {
+    const fixture = buildFixture(root);
+    const warnings = Array.from({ length: 60 }, (_, i) => ({ path: join(homedir(), `.x/${i}`), message: `EACCES under ${homedir()}` }));
+    const result = await runIndex({
+      roots: [root], dbPath, pricing, parse: async () => fixture.session,
+      discoverWithWarnings: async () => ({ sessions: [fixture.session.discovered], warnings }),
+    });
+    expect(result.sessionsIndexed).toBe(1);
+    expect(result.sessionsFailed).toBe(0);
+    expect(result.discoverWarnings).toHaveLength(50);
+    expect(result.discoverWarnings?.[0]).toEqual({ path: '~/.x/0', message: 'EACCES under ~' });
+    const changed = await indexChangedFiles([join(root, 'nothing.jsonl')], {
+      roots: [root], dbPath, pricing, parse: async () => fixture.session,
+      discoverWithWarnings: async () => ({ sessions: [fixture.session.discovered], warnings: warnings.slice(0, 2) }),
+    });
+    expect(changed.discoverWarnings).toHaveLength(2);
   });
 });

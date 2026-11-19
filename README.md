@@ -105,6 +105,37 @@ emit CORS headers. Non-loopback parent origins are ignored.
 Open the host dashboard at `http://127.0.0.1:3000` (not `localhost`) so the iframe can set its
 session cookie — `localhost` and `127.0.0.1` are different sites to the browser.
 
+### Start at login (macOS)
+
+```sh
+ai-cost-analyzer autostart enable     # optional: --port 4141 --home <dir>
+ai-cost-analyzer autostart status
+ai-cost-analyzer autostart disable
+```
+
+This installs a LaunchAgent that runs the server in the background (logs in
+`~/Library/Logs/ai-cost-analyzer/`). Re-run `enable` if you move or reinstall the app or switch
+Node versions. If the server is already running, launching `ai-cost-analyzer` just opens it in your
+browser. See `docs/dev/autostart.md`.
+
+### Menu-bar widget (macOS)
+
+A [SwiftBar](https://swiftbar.app) plugin shows today's spend in the menu bar, with a per-provider
+today / last-7-days dropdown. Install SwiftBar, copy `integrations/swiftbar/ai-cost-analyzer.5m.sh`
+into your SwiftBar plugin folder (keep it executable), and pair it with `autostart enable` so the
+server is always up. Set `CCA_PORT` if you don't use 4141. Costs that are unknown (no token
+telemetry, or an unpriced model) show as `n/a` / `unpriced`, never `$0`. See `docs/dev/widget.md`.
+
+Prefer no SwiftBar? An optional native menu-bar app (Swift, built locally with `swiftc` from the
+Xcode Command Line Tools) does the same:
+
+```sh
+ai-cost-analyzer menubar install      # also: build | status | login enable|disable | uninstall
+```
+
+It installs `~/Applications/AI Cost Analyzer.app`, shows `⚠ offline` with a "Start server" item
+when the server is down, and can launch at login. See `docs/dev/menubar.md`.
+
 ### Try it with synthetic data
 
 ```sh

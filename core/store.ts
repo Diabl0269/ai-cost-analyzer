@@ -7,10 +7,13 @@ import type {
   AttributionAnalyticsResponse,
   DiscoveredSession,
   HooksAnalyticsResponse,
+  DiscoverWarning,
+  IndexFailure,
   IndexProgress,
   InsightsResponse,
   ModelsAnalyticsResponse,
   OverviewResponse,
+  SummaryResponse,
   ParsedSession,
   PricingConfig,
   ProjectsResponse,
@@ -50,6 +53,8 @@ export interface StoreStatus {
   scratchSessions: number;
 }
 
+export type StoreSummary = Pick<SummaryResponse, 'generatedAt' | 'periods' | 'budget'>;
+
 export interface Store {
   readonly dbPath: string;
   status(ctx: QueryContext): Promise<StoreStatus>;
@@ -71,6 +76,8 @@ export interface Store {
   hooksAnalytics(q: RangeQuery, ctx: QueryContext): Promise<HooksAnalyticsResponse>;
   attributionAnalytics(q: RangeQuery, ctx: QueryContext): Promise<AttributionAnalyticsResponse>;
   insights(q: RangeQuery, ctx: QueryContext): Promise<InsightsResponse>;
+  /** Today / last-7-days usage per provider plus the monthly budget; the server adds index state. */
+  summary(ctx: QueryContext): Promise<StoreSummary>;
   exportSession(sessionId: string, ctx: QueryContext): Promise<SessionExport | null>;
   /** CSV rows for the sessions matching q (same semantics as listSessions, no paging) */
   exportSessionsCsv(q: SessionsQuery, ctx: QueryContext): Promise<string>;
@@ -86,6 +93,12 @@ export interface IndexResult {
   parseErrors: number;
   /** Whole sessions that could not be parsed, distinct from tolerated malformed lines. */
   sessionsFailed?: number;
+  /** Known-failing sessions whose files are unchanged since the recorded failure; not retried. */
+  sessionsSkippedFailed?: number;
+  /** Every session currently known to fail in this pass (new failures plus skipped known ones). */
+  failures?: IndexFailure[];
+  /** What discovery could not read or place during this pass (home-relative); not an indexing failure. */
+  discoverWarnings?: DiscoverWarning[];
   durationMs: number;
   changedSessionIds: string[];
 }
@@ -93,6 +106,8 @@ export interface IndexResult {
 export interface IndexerDeps {
   /** default: core/discover.ts discoverSessions */
   discover?: (roots: string[]) => Promise<DiscoveredSession[]>;
+  /** default: core/discover.ts discoverSessionsWithWarnings; used when `discover` is not given */
+  discoverWithWarnings?: (roots: string[]) => Promise<{ sessions: DiscoveredSession[]; warnings: { path: string; message: string }[] }>;
   /** default: core/parse parseSession */
   parse?: (s: DiscoveredSession) => Promise<ParsedSession>;
 }

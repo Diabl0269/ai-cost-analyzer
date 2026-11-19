@@ -112,6 +112,12 @@ test.describe('settings', () => {
     await expect(page.getByText('Settings saved')).toBeVisible();
   });
 
+  test('offers a full re-scan under its accurate name', async ({ page }) => {
+    await openRoute(page, '/settings');
+    await expect(page.getByRole('button', { name: 'Re-scan all roots' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Re-index changed files' })).toHaveCount(0);
+  });
+
   test('rebuilding the index asks first', async ({ page }) => {
     await openRoute(page, '/settings');
     await page.getByRole('button', { name: 'Rebuild from scratch' }).click();
@@ -124,5 +130,50 @@ test.describe('settings', () => {
   test('has no serious or critical accessibility violations', async ({ page }) => {
     await openRoute(page, '/settings');
     await expectNoAxeViolations(page, '/settings');
+  });
+});
+
+test.describe('settings index problems and estimates', () => {
+  test.beforeEach(async ({ request }) => {
+    await waitForIndexed(request);
+  });
+
+  test('lists failed sessions and non-fatal discovery warnings', async ({ page }) => {
+    await page.route('**/api/status', async (route) => {
+      const original = await route.fetch();
+      await route.fulfill({
+        response: original,
+        json: {
+          ...(await original.json()),
+          indexing: false,
+          indexFailureCount: 1,
+          indexFailures: [{ sessionId: 'synthetic', provider: 'codex', paths: ['~/synthetic/a.jsonl'], phase: 'parse', error: 'TypeError: Synthetic bad record' }],
+          discoverWarningCount: 1,
+          discoverWarnings: [{ path: '~/.synthetic/locked', message: 'EACCES: permission denied' }],
+        },
+      });
+    });
+    await openRoute(page, '/settings');
+    const card = page.locator('div').filter({ has: page.getByRole('heading', { name: 'Index problems' }) }).last();
+    await expect(card).toContainText('1 session could not be indexed');
+    await expect(card).toContainText('TypeError: Synthetic bad record');
+    await expect(card).toContainText('Discovery could not read or place 1 path');
+    await expect(card.getByRole('list', { name: 'Discovery warnings' })).toContainText('~/.synthetic/locked · EACCES: permission denied');
+  });
+
+  test('offers "Estimate as…" for an unpriced model and keeps it unsaved until saved', async ({ page }) => {
+    await page.route('**/api/status', async (route) => {
+      const original = await route.fetch();
+      await route.fulfill({ response: original, json: { ...(await original.json()), indexing: false, unpricedModels: ['synthetic-unpriced-model'] } });
+    });
+    await openRoute(page, '/settings');
+    await page.getByRole('button', { name: 'Add price' }).click();
+    await page.getByRole('button', { name: 'Estimate as…' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: 'Estimate as another model' })).toBeVisible();
+    await expect(dialog.getByText('stays unpriced')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Save estimate' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText(/unsaved changes/)).toBeVisible();
   });
 });
