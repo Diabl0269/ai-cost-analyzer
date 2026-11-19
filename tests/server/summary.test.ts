@@ -31,6 +31,7 @@ interface Spec {
   provider: Provider;
   days: number[];
   withUsage?: boolean;
+  withAssistant?: boolean;
   model?: string;
 }
 
@@ -53,7 +54,10 @@ function sessionOf(spec: Spec): ParsedSession {
           request({ seq: i, ts: localTs(d), turnIndex: 1, ...(spec.model ? { model: spec.model } : {}), usage: usage({ input: 1000, output: 100 }), blocks: [block({ type: 'text', chars: 10 })] }),
         )
       : [],
-    messages: [message({ seq: 0, ts: localTs(spec.days[0]!), kind: 'prompt', preview: 'x' })],
+    messages: [
+      message({ seq: 0, ts: localTs(spec.days[0]!), kind: 'prompt', preview: 'x' }),
+      ...(spec.withAssistant ? [message({ seq: 1, ts: localTs(spec.days[0]!), kind: 'assistant', role: 'assistant', preview: 'y' })] : []),
+    ],
   });
   const discovered: DiscoveredSession = {
     projectDirName: dir,
@@ -144,7 +148,7 @@ describe('summary aggregate (real store)', () => {
   });
 
   it('reports missing telemetry as unavailable, not $0', async () => {
-    const store = await storeFor([{ id: 'n', provider: 'codex', days: [7], withUsage: false }]);
+    const store = await storeFor([{ id: 'n', provider: 'codex', days: [7], withUsage: false, withAssistant: true }]);
     const s = await store.summary(ctx);
     const codex = s.periods.today.byProvider.codex;
     expect(codex?.cost).toBeNull();
@@ -152,6 +156,20 @@ describe('summary aggregate (real store)', () => {
     expect(codex?.unavailableSessions).toBe(1);
     expect(s.periods.today.total.cost).toBeNull();
     expect(s.periods.today.total.costStatus).toBe('unavailable');
+    store.close();
+  });
+
+  it('does not count prompt-only sessions as assistant usage', async () => {
+    const store = await storeFor([{ id: 'prompt-only', provider: 'claude', days: [7], withUsage: false }]);
+    const sessions = await store.listSessions({ provider: 'claude', from: '2026-09-07', to: '2026-09-07' }, ctx);
+    expect(sessions.total).toBe(1);
+    const summary = await store.summary(ctx);
+    expect(summary.periods.today.byProvider.claude).toMatchObject({
+      cost: 0,
+      costStatus: 'recorded',
+      sessions: 0,
+      unavailableSessions: 0,
+    });
     store.close();
   });
 });

@@ -58,7 +58,7 @@ test.describe('settings', () => {
 
   test('a pricing edit round-trips through the API', async ({ page, request }) => {
     await openRoute(page, '/settings');
-    const field = page.getByLabel(OPUS_INPUT);
+    const field = page.getByLabel(OPUS_INPUT, { exact: true });
     await expect(field).toBeVisible();
     const original = await field.inputValue();
 
@@ -76,13 +76,13 @@ test.describe('settings', () => {
     expect(config.models.find((model) => model.key === 'opus-5')?.input).toBe(7.5);
 
     await page.reload();
-    await expect(page.getByLabel(OPUS_INPUT)).toHaveValue('7.5');
+    await expect(page.getByLabel(OPUS_INPUT, { exact: true })).toHaveValue('7.5');
     expect(original).not.toBe('7.5');
   });
 
   test('an invalid price blocks the save', async ({ page }) => {
     await openRoute(page, '/settings');
-    await page.getByLabel('Characters per token for Claude Opus 5').fill('0');
+    await page.getByLabel('Characters per token for Claude Opus 5', { exact: true }).fill('0');
     await expect(page.getByText('Fix these before saving')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save pricing' })).toBeDisabled();
   });

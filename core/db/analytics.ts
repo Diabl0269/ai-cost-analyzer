@@ -802,8 +802,11 @@ export function summaryUsage(ctx: AnalyticsContext, provider: Provider): Summary
         SUM(CASE WHEN s.requestCount > 0 THEN 1 ELSE 0 END) AS partial
        FROM sessions s WHERE s.usageIncomplete = 1
         AND s.id IN (SELECT s.id FROM sessions s${coverageScope.sql})
-        AND (s.startedDate BETWEEN ? AND ? OR EXISTS (
-          SELECT 1 FROM messages m WHERE m.sessionId = s.id AND m.dateLocal BETWEEN ? AND ?))`,
+        AND EXISTS (
+          SELECT 1 FROM requests r WHERE r.sessionId = s.id AND r.dateLocal BETWEEN ? AND ?
+          UNION ALL
+          SELECT 1 FROM messages m WHERE s.requestCount = 0 AND m.sessionId = s.id
+            AND m.kind = 'assistant' AND m.dateLocal BETWEEN ? AND ?)`,
     )
     .get(...coverageScope.params, ctx.range.from, ctx.range.to, ctx.range.from, ctx.range.to) as Row;
   const unavailableSessions = num(coverage, 'unavailable');
