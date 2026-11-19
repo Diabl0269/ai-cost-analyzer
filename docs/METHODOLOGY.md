@@ -47,11 +47,13 @@ cost = input·P.input + output·P.output
      + webSearchRequests · $10 / 1000
 ```
 
-Prices default to Anthropic's published list (platform.claude.com, September 2026) and are editable in
+Prices default to Anthropic's published list (platform.claude.com, September 2026), OpenAI's API table, and GitHub Copilot's model pricing reference, and are editable in
 Settings. Modifiers: fast mode (`speed: "fast"`) uses the model's fast-mode prices where defined;
 US-only inference (`inference_geo: "us"`) multiplies token prices by 1.1 on Claude 4.6 and later; batch
 tier halves them. Long-context requests (>200K) are billed at standard rates on 4.6 and later, so no
 surcharge is applied. Output tokens already include thinking tokens.
+
+GitHub Copilot model rates come from [Models and pricing for GitHub Copilot](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing#microsoft). MAI Code 2 and MAI Code 2 Flash use that page's promotional Microsoft rates through May 17, 2027; both double after the promotion. Microsoft rates publish input, cached input and output, but no cache-write tariff, so cache-write tokens are not priced for these models. Review this human-maintained page when updating Copilot models: the table includes promotions and expiry dates that are unsafe to infer from an automated scrape alone.
 
 Cache writes are billed by how long they are kept: a 5-minute write costs 1.25× the input price, a
 1-hour write 2×. Current Claude Code records the split on every line. Older versions reported only a
@@ -59,8 +61,7 @@ total, and for those the **"assume unknown cache TTL"** setting decides which bu
 in. Those tokens are stored separately from the reported split, so flipping the setting re-prices
 immediately — like every other pricing edit, it never needs a re-index.
 
-A model the pricing table cannot match is shown as **unpriced**: its tokens are counted, its cost is zero,
-and it is listed in Settings so you can add a price.
+A model the pricing table cannot match is shown as **unpriced**: its tokens are counted, its dollar cost is unknown (not an exact zero), and it is listed in Settings so you can add a price.
 
 ### Cross-check
 

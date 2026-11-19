@@ -129,6 +129,19 @@ describe('models added 2026-11-19', () => {
     expect(price.perToken.cacheRead).toBeCloseTo(0.02 / 1e6);
     expect(resolve('mai-code-1.1-flash-preview').unpriced).toBe(true);
   });
+  it('prices MAI Code 2 promotional rows without inheriting them by prefix', () => {
+    const code2 = resolve('mai-code-2');
+    expect(code2.unpriced).toBe(false);
+    expect(code2.perToken.input).toBeCloseTo(0.5 / 1e6);
+    expect(code2.perToken.output).toBeCloseTo(2.5 / 1e6);
+    expect(code2.perToken.cacheRead).toBeCloseTo(0.025 / 1e6);
+    expect(code2.perToken.cacheWrite5m).toBe(0);
+    const flash = resolve('mai-code-2-flash');
+    expect(flash.perToken.input).toBeCloseTo(0.05 / 1e6);
+    expect(flash.perToken.output).toBeCloseTo(0.25 / 1e6);
+    expect(flash.perToken.cacheRead).toBeCloseTo(0.005 / 1e6);
+    expect(resolve('mai-code-2-preview').unpriced).toBe(true);
+  });
   it('prices GPT-6 cache writes at 1.25x input', () => {
     for (const [id, input] of [['gpt-6.1-sol', 2], ['gpt-6.1-terra', 1], ['gpt-6-luna', 0.1], ['gpt-6-sol', 2], ['gpt-6-astra', 10]] as const) {
       const price = resolve(id, { cacheWriteTokens: 1_000 });
@@ -138,7 +151,7 @@ describe('models added 2026-11-19', () => {
   });
   it('upgrades saved zero-write GPT-6 rows and adds new models, but keeps edited rows', () => {
     const saved = structuredClone(pricing);
-    saved.models = saved.models.filter((m) => !['haiku-5.5', 'mai-code-1.1-flash', 'opus-5.5'].includes(m.key));
+    saved.models = saved.models.filter((m) => !['haiku-5.5', 'mai-code-1.1-flash', 'mai-code-2', 'mai-code-2-flash', 'opus-5.5'].includes(m.key));
     const sol = saved.models.find((m) => m.key === 'gpt-6.1-sol')!;
     sol.cacheWrite5m = 0; sol.cacheWrite1h = 0;
     const edited = saved.models.find((m) => m.key === 'gpt-6-sol')!;
@@ -146,6 +159,6 @@ describe('models added 2026-11-19', () => {
     const loaded = withDefaultModels(saved);
     expect(loaded.models.find((m) => m.key === 'gpt-6.1-sol')!.cacheWrite5m).toBe(2.5);
     expect(loaded.models.find((m) => m.key === 'gpt-6-sol')!.cacheWrite5m).toBe(0);
-    for (const key of ['haiku-5.5', 'mai-code-1.1-flash', 'opus-5.5']) expect(loaded.models.some((m) => m.key === key)).toBe(true);
+    for (const key of ['haiku-5.5', 'mai-code-1.1-flash', 'mai-code-2', 'mai-code-2-flash', 'opus-5.5']) expect(loaded.models.some((m) => m.key === key)).toBe(true);
   });
 });
