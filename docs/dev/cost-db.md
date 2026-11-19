@@ -159,6 +159,9 @@ compareReported(computed, computedUsd, reported): ReportedComparison   // core/c
   `sessions_fts` is deleted by `sessionId` (a few hundred rows, a scan is fine).
 - `dateLocal` is a local `YYYY-MM-DD` computed at index time; items without a timestamp inherit the
   session's start date so they are not silently dropped from range analytics.
+- Usage coverage follows billable activity by date. `usageIncomplete` sessions with requests count as
+  partial only on request dates; sessions with no requests count as unavailable only when an
+  assistant message falls in the range. A prompt or session start date alone is not billable usage.
 
 - `agents.description` falls back to the agent transcript's own cleaned first prompt, truncated to
   80 chars (`agentDescription` in `write-session.ts`), when `meta.json` has none. Every workflow
