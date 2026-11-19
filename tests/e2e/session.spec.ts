@@ -28,6 +28,16 @@ test.describe('session detail', () => {
     await waitForIndexed(request);
   });
 
+  test('the summary shows tokens versus cost by type with a cache-hit figure', async ({ page }) => {
+    await openRoute(page, `/sessions/${A1}`);
+    const strip = page.getByRole('region', { name: 'Tokens versus cost by type' });
+    await expect(strip.getByRole('heading', { name: 'Tokens vs cost by type' })).toBeVisible();
+    await expect(strip).toContainText(/Cache hit\s*(\d+(\.\d+)?%|unavailable)/);
+    await expect(strip.getByRole('listitem')).toHaveCount(4);
+    await expect(strip).toContainText(/% of tokens/);
+    await scan(page, `/sessions/${A1} tokens strip`);
+  });
+
   test('the summary receipt adds up to the fixture total', async ({ page }) => {
     const problems = watchForProblems(page);
     await openRoute(page, `/sessions/${A1}`);

@@ -7,13 +7,16 @@
  */
 import { statSync } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
-import type { QueryContext, Store, StoreStatus } from '../store.js';
+import type { QueryContext, Store, StoreStatus, StoreSummary } from '../store.js';
 import type {
   AgentTreeResponse,
   AttributionAnalyticsResponse,
   HooksAnalyticsResponse,
   InsightsResponse,
   ModelsAnalyticsResponse,
+  Provider,
+  SummaryPeriod,
+  SummaryUsage,
   OverviewResponse,
   ProjectSummary,
   ProjectsResponse,
@@ -32,7 +35,7 @@ import type {
 } from '../types.js';
 import { createPriceResolver, findModelPrice, parseWhatIf, type PriceResolver } from '../pricing/resolve.js';
 import { costOfUsage, emptyBreakdown, emptyTokenTotals } from '../pricing/money.js';
-import { budgetStatus, planComparison } from '../cost/plan.js';
+import { budgetStatus, localDateKey, planComparison } from '../cost/plan.js';
 import { computeInsights } from '../cost/insights.js';
 import { META_LAST_INDEXED_AT, getMeta, openDatabase } from './schema.js';
 import { decodeCursor, encodeCursor, resolveRange, sessionScope, type SqlScope } from './filters.js';
@@ -65,12 +68,15 @@ import {
   attributionAnalytics,
   buildInsightsInput,
   categoriesInRange,
+  combineSummaryUsage,
   dailyPoints,
+  emptySummaryProviders,
   hooksAnalytics,
   modelRowsInRange,
   modelsAnalytics,
   rangeCounts,
   requestCountsByProject,
+  summaryUsage,
   toolsAnalytics,
   totalsFromModelRows,
   type AnalyticsContext,
@@ -109,6 +115,7 @@ function emptySessionCostBundle(): SessionCostBundle {
     requests: 0,
     models: [],
     unpriced: false,
+    estimatedCost: 0,
   };
 }
 
@@ -118,6 +125,11 @@ function emptySessionCostBundle(): SessionCostBundle {
  */
 function resolverFor(ctx: QueryContext, q: RangeQuery | undefined): PriceResolver {
   return createPriceResolver(ctx.pricing, parseWhatIf(q?.whatIf ?? ctx.whatIf));
+}
+
+/** Local `YYYY-MM-DD` for `daysBack` days before `now`; same boundaries as the web's range presets. */
+function presetDay(now: Date, daysBack: number): string {
+  return localDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysBack));
 }
 
 function nowOf(ctx: QueryContext): Date {
@@ -345,6 +357,7 @@ class SqliteStore implements Store {
       nextCursor: start + limit < sessions.length && last ? encodeCursor(last.id) : null,
       total: sessions.length,
       totalCost: sessions.reduce((sum, s) => sum + s.cost.total, 0),
+      ...(sessions.some((s) => s.estimatedCost) ? { totalEstimatedCost: sessions.reduce((sum, s) => sum + (s.estimatedCost ?? 0), 0) } : {}),
     };
   }
 
@@ -648,6 +661,7 @@ class SqliteStore implements Store {
         agents: counts.agents,
         cacheHitRatio: tokens.context > 0 ? tokens.cacheRead / tokens.context : 0,
         costPerPrompt: counts.prompts > 0 ? cost.total / counts.prompts : 0,
+        ...(byModel.some((row) => row.estimatedCost) ? { estimatedCost: byModel.reduce((sum, row) => sum + (row.estimatedCost ?? 0), 0) } : {}),
       },
       daily,
       byModel,
@@ -685,6 +699,25 @@ class SqliteStore implements Store {
       byDate.set(date, (byDate.get(date) ?? 0) + cost);
     }
     return [...byDate.entries()].map(([date, cost]) => ({ date, cost }));
+  }
+
+  async summary(ctx: QueryContext): Promise<StoreSummary> {
+    const now = nowOf(ctx);
+    const today = presetDay(now, 0);
+    const periodFor = (from: string): SummaryPeriod => {
+      const byProvider: Partial<Record<Provider, SummaryUsage>> = {};
+      for (const provider of emptySummaryProviders()) {
+        if (ctx.settings.hiddenProviders.includes(provider)) continue;
+        byProvider[provider] = summaryUsage(analyticsContext(this.db, { provider, from, to: today }, ctx), provider);
+      }
+      return { range: { from, to: today }, total: combineSummaryUsage(Object.values(byProvider) as SummaryUsage[]), byProvider };
+    };
+    const resolve = resolverFor(ctx, {});
+    return {
+      generatedAt: now.toISOString(),
+      periods: { today: periodFor(today), week: periodFor(presetDay(now, 6)) },
+      budget: budgetStatus(this.monthlyDaily(ctx, resolve, {}), ctx.settings, now),
+    };
   }
 
   async toolsAnalytics(q: RangeQuery, ctx: QueryContext): Promise<ToolsAnalyticsResponse> {

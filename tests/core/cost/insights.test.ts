@@ -136,3 +136,47 @@ describe('insights name things the way the rest of the app does', () => {
     expect(insights.find((i) => i.id === 'slow-hooks')?.explanation).toContain('1 failure)');
   });
 });
+
+describe('long-context advice', () => {
+  const long = (partial: Partial<InsightSessionRow> = {}) => session({ requestCount: 2, contextTokensTotal: 1_000_000, cost: 8, ...partial });
+  const explain = (insights: ReturnType<typeof computeInsights>) => insights.find((i) => i.id === 'long-context-sessions')?.explanation ?? '';
+
+  it('suggests /compact for Claude and a new thread for Codex', () => {
+    expect(explain(computeInsights(input({ sessions: [long({ provider: 'claude' })] }), ctx))).toContain('/compact');
+    const codex = explain(computeInsights(input({ sessions: [long({ provider: 'codex' })] }), ctx));
+    expect(codex).toContain('new Codex thread');
+    expect(codex).not.toContain('/compact');
+  });
+
+  it('labels the saving as an estimate and names the top carried tool', () => {
+    const text = explain(
+      computeInsights(
+        input({ sessions: [long({ provider: 'claude' })], tools: [{ name: 'Read', calls: 3, genCost: 0, ingestCost: 0, carryCost: 4, topSessions: [] }] }),
+        ctx,
+      ),
+    );
+    expect(text).toMatch(/roughly \$[\d.]+ \(estimate\)/);
+    expect(text).toContain('Read');
+  });
+});
+
+describe('input-heavy unpriced models', () => {
+  const usage = { input: 400_000, output: 2_000, cacheRead: 0, cache5m: 0, cache1h: 0, thinking: 0, webSearchRequests: 0, webFetchRequests: 0 };
+  const row = (partial = {}) => ({ sessionId: 's1', title: 't', model: 'codex-auto-review', family: 'other' as const, isAgent: false, requests: 3, cost: 0, usage, unpriced: true, ...partial });
+
+  it('fires with the ratio and never a dollar figure without an estimate', () => {
+    const found = computeInsights(input({ sessionModels: [row()] }), ctx).find((i) => i.id === 'input-heavy-unpriced');
+    expect(found?.title).toContain('200:1');
+    expect(found?.kind).toBe('info');
+    expect(found?.impactUsd).toBe(0);
+    expect(`${found?.title}${found?.explanation}`).not.toMatch(/\$\d/);
+  });
+
+  it('shows a labeled estimate when one is set, and skips priced or balanced models', () => {
+    const est = computeInsights(input({ sessionModels: [row({ estimatedCost: 1.5 })] }), ctx).find((i) => i.id === 'input-heavy-unpriced');
+    expect(est?.impactUsd).toBe(1.5);
+    expect(est?.explanation).toContain('(estimate)');
+    expect(computeInsights(input({ sessionModels: [row({ unpriced: false })] }), ctx).some((i) => i.id === 'input-heavy-unpriced')).toBe(false);
+    expect(computeInsights(input({ sessionModels: [row({ usage: { ...usage, output: 100_000 } })] }), ctx).some((i) => i.id === 'input-heavy-unpriced')).toBe(false);
+  });
+});

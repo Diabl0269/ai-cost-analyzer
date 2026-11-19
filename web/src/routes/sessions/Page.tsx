@@ -17,6 +17,7 @@ import { RelativeTime } from '@/components/RelativeTime';
 import { Skeleton } from '@/components/Skeleton';
 import { Tooltip } from '@/components/Tooltip';
 import { api } from '@/lib/api';
+import { formatMoney } from '@/lib/format';
 import { useModelsAnalytics, usePinSession, useSessionsInfinite, useStatus } from '@/lib/queries';
 import { useDateRange, rangeLabel } from '@/lib/range';
 import { useShortcuts } from '@/lib/keyboard';
@@ -254,12 +255,12 @@ export default function SessionsPage() {
           ) : <Money usd={session.cost.total} className={styles.cost} />}
           {session.usageIncomplete && !hasNoRecordedUsage(session) ? (
             <Tooltip content="Some token usage is missing. This total covers recorded tokens only.">
-              <span className={styles.unpriced} aria-label="Incomplete usage"><Icon name="warning" size={12} /></span>
+              <span className={styles.unpriced} role="img" aria-label="Incomplete usage"><Icon name="warning" size={12} /></span>
             </Tooltip>
           ) : null}
           {session.unpriced ? (
-            <Tooltip content="This session used a model with no price in the pricing table, so its total is a floor. Add a price in Settings.">
-              <span className={styles.unpriced} aria-label="Unpriced model">
+            <Tooltip content={session.estimatedCost ? `This session used a model with no price, so its total excludes it. Estimate only: about ${formatMoney(session.estimatedCost)} if billed as ${session.estimatedAs ?? 'another model'}.` : 'This session used a model with no price in the pricing table, so its total is a floor. Add a price in Settings.'}>
+              <span className={styles.unpriced} role="img" aria-label="Unpriced model">
                 <Icon name="warning" size={12} />
               </span>
             </Tooltip>

@@ -32,6 +32,7 @@ export function defaultSettings(): UserSettings {
     currency: { code: 'USD', rate: 1 },
     pinnedSessionIds: [],
     hideScratchProjects: true,
+    hiddenProviders: [],
     reducedMotion: 'system',
   };
 }
@@ -54,6 +55,7 @@ export const userSettingsSchema = z.object({
   }),
   pinnedSessionIds: z.array(z.string().min(1)),
   hideScratchProjects: z.boolean(),
+  hiddenProviders: z.array(z.enum(['claude', 'codex', 'copilot', 'opencode'])).default([]),
   reducedMotion: z.enum(['system', 'on', 'off']),
 });
 

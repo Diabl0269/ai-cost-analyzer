@@ -444,6 +444,11 @@ export interface PricingConfig {
   unknownModelPolicy: 'zero' | 'fallbackModel';
   fallbackModelKey?: string;
   assumeCacheWriteTtlWhenUnknown: '5m' | '1h';
+  /**
+   * Labeled estimates for specific unpriced models: exact normalized model id → pricing model key.
+   * The model stays unpriced; its cost is reported separately from recorded cost.
+   */
+  estimateAs?: Record<string, string>;
 }
 
 /** Resolved per-token prices (USD per token) for one billed unit. */
@@ -454,6 +459,10 @@ export interface ResolvedPrice {
   perToken: TokenPrices;
   charsPerToken: number;
   unpriced: boolean;
+  /** Priced by `pricing.estimateAs`; the model itself still has no price. */
+  estimated?: boolean;
+  /** Pricing model key whose rates were borrowed (set with `estimated`). */
+  estimatedAs?: string;
   multipliers: { fast: boolean; usGeo: boolean; batch: boolean };
 }
 
@@ -480,6 +489,8 @@ export interface UserSettings {
   pinnedSessionIds: string[];
   /** hide the tmp scratch project (cwd under /private/var/folders or /tmp) by default */
   hideScratchProjects: boolean;
+  /** tools left out of the provider filter and the menu-bar summary; their data stays indexed */
+  hiddenProviders: Provider[];
   reducedMotion: 'system' | 'on' | 'off';
 }
 
@@ -496,9 +507,31 @@ export interface RangeQuery {
   whatIf?: string;
 }
 
+/** One session the indexer could not parse or write. Paths are home-relative (`~/…`). */
+export interface IndexFailure {
+  sessionId: string;
+  provider: 'claude' | 'codex' | 'copilot' | 'opencode';
+  paths: string[];
+  phase: 'parse' | 'write';
+  /** `Name: message`, capped at 300 characters. */
+  error: string;
+}
+
+/** Something discovery could not read or place (unreadable directory, orphan file). Home-relative; never fatal. */
+export interface DiscoverWarning {
+  path: string;
+  message: string;
+}
+
 export interface StatusResponse {
-  /** Retained failure: totals may be incomplete until a full rebuild or rescan succeeds. */
+  /** Retained run-level failure: totals may be incomplete until a full rebuild or rescan succeeds. */
   indexError?: string;
+  /** Sessions that could not be indexed (capped at 50); `indexFailureCount` is the full count. */
+  indexFailures?: IndexFailure[];
+  indexFailureCount?: number;
+  /** Non-fatal discovery warnings from the last pass (capped at 50); `discoverWarningCount` is the full count. */
+  discoverWarnings?: DiscoverWarning[];
+  discoverWarningCount?: number;
   version: string;
   indexing: boolean;
   progress?: IndexProgress;
@@ -531,8 +564,8 @@ export interface IndexProgress {
 export type IndexEvent =
   | { type: 'progress'; progress: IndexProgress }
   | { type: 'sessionsChanged'; sessionIds: string[] }
-  | { type: 'indexed'; at: string; indexError?: string }
-  | { type: 'error'; message: string }
+  | { type: 'indexed'; at: string; indexError?: string; indexFailures?: IndexFailure[]; indexFailureCount?: number }
+  | { type: 'error'; message: string; indexFailures?: IndexFailure[]; indexFailureCount?: number }
   | { type: 'ping' };
 
 export interface ProjectSummary {
@@ -594,6 +627,10 @@ export interface ModelCostRow {
   tokens: TokenTotals;
   cost: CostBreakdown;
   unpriced: boolean;
+  /** USD if billed as the `estimateAs` target; never included in `cost`. */
+  estimatedCost?: number;
+  /** Pricing key the estimate borrows rates from. */
+  estimatedAs?: string;
 }
 
 export interface SessionSummary {
@@ -636,6 +673,9 @@ export interface SessionSummary {
   pinned: boolean;
   continuedInSessionId?: string;
   unpriced: boolean;
+  /** Labeled estimate for `estimateAs` models; separate from, and never added to, `cost`. */
+  estimatedCost?: number;
+  estimatedAs?: string;
 }
 
 export interface SessionsResponse {
@@ -643,6 +683,8 @@ export interface SessionsResponse {
   nextCursor: string | null;
   total: number;
   totalCost: number;
+  /** Sum of labeled estimates; never included in `totalCost`. */
+  totalEstimatedCost?: number;
 }
 
 export interface RequestCost {
@@ -663,6 +705,8 @@ export interface RequestCost {
   stopReason?: string;
   isFallback: boolean;
   unpriced: boolean;
+  /** Request is priced only by an `estimateAs` rule; `cost` excludes it. */
+  estimated?: boolean;
   attribution: Attribution;
   toolNames: string[];
 }
@@ -956,6 +1000,8 @@ export interface OverviewResponse {
     agents: number;
     cacheHitRatio: number;
     costPerPrompt: number;
+    /** Labeled `estimateAs` estimate; separate from `cost`. Absent when none applies. */
+    estimatedCost?: number;
   };
   daily: DailyPoint[];
   byModel: ModelCostRow[];
@@ -966,6 +1012,48 @@ export interface OverviewResponse {
   budget: BudgetStatus;
   insights: Insight[];
   unpricedModels: string[];
+}
+
+/** How trustworthy a monetary figure is; mirrors the CSV `costStatus` column. */
+export type UsageCostStatus = 'recorded' | 'partial' | 'unpriced' | 'unavailable';
+
+/** Usage of one provider (or all providers) in one period. */
+export interface SummaryUsage {
+  /** USD at API list prices. `null` when unknown (unpriced or no token telemetry), never a fake 0. */
+  cost: number | null;
+  costStatus: UsageCostStatus;
+  /**
+   * USD for usage on models priced only by an `estimateAs` rule. Separate from `cost`, which never
+   * includes it; absent when there is no such usage.
+   */
+  estimatedCost?: number;
+  /** Input + output + cache read + cache write. Context-tier pricing is applied inside `cost`. */
+  tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+  /** Sessions with recorded usage in the period. */
+  sessions: number;
+  /** Sessions with activity in the period but no token telemetry at all. */
+  unavailableSessions: number;
+  /** Sessions with activity in the period whose telemetry is only partly recorded. */
+  partialSessions: number;
+}
+
+export interface SummaryPeriod {
+  /** Inclusive local days. */
+  range: { from: string; to: string };
+  total: SummaryUsage;
+  byProvider: Partial<Record<Provider, SummaryUsage>>;
+}
+
+/** `GET /api/analytics/summary`: one cheap call for menu-bar widgets. Copilot credits are not USD and are not reported here. */
+export interface SummaryResponse {
+  generatedAt: string;
+  /** `today` is the current local day; `week` is the last 7 local days including today. */
+  periods: { today: SummaryPeriod; week: SummaryPeriod };
+  indexing: boolean;
+  indexError?: string;
+  indexFailureCount?: number;
+  lastIndexedAt: string | null;
+  budget: BudgetStatus;
 }
 
 export interface ToolAnalyticsRow {

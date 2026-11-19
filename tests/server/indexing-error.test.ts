@@ -47,14 +47,40 @@ describe('retained indexing failure', () => {
     mock.workers.at(-1)!.emit('message', { type: 'done', result });
     expect(manager.status().error).toBeUndefined();
   });
-  it('reports a failed-session result as incomplete instead of up to date', () => {
+  it('keeps per-session failures separate from the run error, still reporting the run as indexed', () => {
     const events: IndexEvent[] = [];
     manager = createIndexManager({ roots: [], dbPath: '/synthetic/index.sqlite', pricing: defaultPricing, broadcast: event => events.push(event), workerPath: '/synthetic/worker.js' });
     manager.requestRescan();
-    mock.workers.at(-1)!.emit('message', { type: 'done', result: { ...result, sessionsFailed: 1 } });
-    expect(manager.status()).toMatchObject({ indexing: false, error: expect.stringContaining('could not be parsed') });
-    expect(events.at(-1)?.type).toBe('error');
-    expect(events.some(event => event.type === 'indexed')).toBe(false);
+    const failure = { sessionId: 's1', provider: 'codex', paths: ['~/x.jsonl'], phase: 'parse', error: 'TypeError: bad' };
+    mock.workers.at(-1)!.emit('message', { type: 'done', result: { ...result, changedSessionIds: ['s2'], sessionsFailed: 1, failures: [failure] } });
+    expect(manager.status()).toMatchObject({ indexing: false, error: undefined, indexFailures: [failure] });
+    expect(manager.status().lastIndexedAt).not.toBeNull();
+    expect(events.map(event => event.type)).toEqual(['indexed', 'sessionsChanged']);
+    expect(events[0]).toMatchObject({ indexFailures: [failure], indexFailureCount: 1 });
+    expect(events[0]).not.toHaveProperty('indexError');
   });
 
+  it('never clears the run error from an incremental run even when failures change', () => {
+    manager = createIndexManager({ roots: [], dbPath: '/synthetic/index.sqlite', pricing: defaultPricing, broadcast: () => {}, workerPath: '/synthetic/worker.js' });
+    manager.requestFull();
+    mock.workers.at(-1)!.emit('message', { type: 'error', message: 'Synthetic scan failed' });
+    manager.requestIncremental(['/synthetic/a.jsonl']);
+    const failure = { sessionId: 's1', provider: 'claude', paths: [], phase: 'write', error: 'Error: x' };
+    mock.workers.at(-1)!.emit('message', { type: 'done', result: { ...result, failures: [failure], sessionsFailed: 1 } });
+    expect(manager.status()).toMatchObject({ error: 'Synthetic scan failed', indexFailures: [failure] });
+    manager.requestIncremental(['/synthetic/a.jsonl']);
+    mock.workers.at(-1)!.emit('message', { type: 'done', result: { ...result, changedSessionIds: ['s1'] } });
+    expect(manager.status()).toMatchObject({ error: 'Synthetic scan failed', indexFailures: [] });
+  });
+
+  it('keeps discovery warnings from the latest pass without setting an error', () => {
+    manager = createIndexManager({ roots: [], dbPath: '/synthetic/index.sqlite', pricing: defaultPricing, broadcast: () => {}, workerPath: '/synthetic/worker.js' });
+    manager.requestRescan();
+    const w = { path: '~/.codex/sessions', message: 'EACCES: permission denied' };
+    mock.workers.at(-1)!.emit('message', { type: 'done', result: { ...result, discoverWarnings: [w] } });
+    expect(manager.status()).toMatchObject({ error: undefined, discoverWarnings: [w] });
+    manager.requestRescan();
+    mock.workers.at(-1)!.emit('message', { type: 'done', result: { ...result, discoverWarnings: [] } });
+    expect(manager.status().discoverWarnings).toEqual([]);
+  });
 });

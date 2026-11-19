@@ -76,6 +76,17 @@ export function sumBreakdowns(parts: readonly CostBreakdown[]): CostBreakdown {
 
 /** cost = Σ tokens·price + webSearchRequests · webSearchPer1000/1000 */
 export function costOfUsage(usage: TokenUsage, price: ResolvedPrice, webSearchPer1000: number): CostBreakdown {
+  // Estimated usage is reported separately (`estimatedCostOf`), never mixed into recorded cost.
+  if (price.estimated) return emptyBreakdown();
+  return rawCostOfUsage(usage, price, webSearchPer1000);
+}
+
+/** USD for usage priced by an `estimateAs` rule; 0 for any non-estimated price. */
+export function estimatedCostOf(usage: TokenUsage, price: ResolvedPrice, webSearchPer1000: number): number {
+  return price.estimated ? rawCostOfUsage(usage, price, webSearchPer1000).total : 0;
+}
+
+function rawCostOfUsage(usage: TokenUsage, price: ResolvedPrice, webSearchPer1000: number): CostBreakdown {
   const p = price.perToken;
   const input = usage.input * p.input;
   const output = usage.output * p.output;

@@ -150,10 +150,12 @@ links and navigation. `useDateRange` carries provider with date/project state to
 
 ## Index completeness
 
-An indexing exception may leave completed sessions in the cache. The error is retained in the
+An indexing exception may leave completed sessions in the cache. The run-level error is retained in the
 index manager, exposed as `/api/status.indexError`, and displayed as **Index incomplete** until
 a successful full rebuild or rescan. A successful incremental update cannot certify the whole
-index. Validate discovery versus indexed counts against real source roots before claiming a
+index. Sessions that fail to parse or write are listed separately (`indexFailures`, capped at 50,
+home-relative paths); their file signature is stored in meta so rescans skip them until the files
+change, a full rebuild runs, or `PARSER_VERSION` changes. They do not set the run-level error. Discovery warnings (unreadable directories, orphan session folders) are reported separately and non-fatally as `/api/status.discoverWarnings` (capped at 50, home-relative) and shown in Settings → Index problems. Validate discovery versus indexed counts against real source roots before claiming a
 preview contains the user's history; a successful HTTP response proves only that the server runs.
 Codex sessions with assistant messages and no token telemetry display an unavailable cost.
 
@@ -166,8 +168,8 @@ ordinary requests are preserved. Context-only sessions use a distinct identifier
 
 When those derived facts change, increment `PARSER_VERSION` in `core/db/indexer.ts`. A successful
 root scan marks that version in the existing meta table; a mismatch reparses unchanged files,
-refreshing titles and full-text search automatically. A failed whole-session parse cannot mark
-the upgrade complete or report the index as up to date. No schema change is needed.
+refreshing titles and full-text search automatically. A completed run marks the version even when
+some sessions failed (they are tracked as failures instead). No schema change is needed.
 
 Data-page navigation carries provider, dates and project. Settings/document links carry only
 provider; page-specific filters and cursors are not global. The project tree deliberately drops
@@ -195,3 +197,10 @@ file; `XDG_DATA_HOME` moves the default. Tests build synthetic databases with
 `tests/helpers/opencode-db.ts` — never copy a real `opencode.db` into the repo. Each session's
 virtual file path is `<db>#opencode:<session id>`, and transcript lines are addressed by virtual
 sequence number, as for VS Code journals.
+
+- Settings `hiddenProviders` hides tools from the top-bar provider filter and the menu-bar summary
+  (`/api/analytics/summary` omits them); data stays indexed. OpenCode's database is polled every 5 s
+  by `server/watcher.ts` because macOS fs events miss its in-place WAL writes. Run tests/builds on
+  Node 22 (Homebrew Node 23 lacks SQLite FTS5).
+- Pricing additions land in `addedDefaultModels()` (`core/pricing/defaults.ts`); `withDefaultModels`
+  merges them into saved configs and upgrades untouched GPT-6 rows with the 1.25x cache-write rate.

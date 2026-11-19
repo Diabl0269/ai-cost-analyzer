@@ -2,6 +2,12 @@ import type { To } from 'react-router';
 
 export type { Provider } from '../../../core/types.js';
 import type { Provider } from '../../../core/types.js';
+export const PROVIDERS: { value: Provider; label: string }[] = [
+  { value: 'claude', label: 'Claude' },
+  { value: 'codex', label: 'Codex' },
+  { value: 'copilot', label: 'Copilot' },
+  { value: 'opencode', label: 'OpenCode' },
+];
 export function readProvider(search: string): Provider | undefined {
   const value = new URLSearchParams(search).get('provider');
   return value === 'claude' || value === 'codex' || value === 'copilot' || value === 'opencode' ? value : undefined;

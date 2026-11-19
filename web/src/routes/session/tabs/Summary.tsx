@@ -15,6 +15,7 @@ import { ModelChip } from '@/components/ModelChip';
 import { Money } from '@/components/Money';
 import { Receipt } from '@/components/Receipt';
 import { Tokens } from '@/components/Tokens';
+import { TokenBar } from '@/components/TokenBar';
 import { Tooltip } from '@/components/Tooltip';
 import { useToast } from '@/components/Toast';
 import { Duration } from '@/components/Duration';
@@ -32,6 +33,7 @@ import {
   estimatedResidual,
   exactAmounts,
   toReceiptRows,
+  tokenCostShares,
 } from '../receipt';
 import styles from './Summary.module.css';
 
@@ -70,6 +72,7 @@ export default function SummaryTab() {
   const { summary } = detail;
   const { toast } = useToast();
   const driver = useMemo(() => costDriver(detail), [detail]);
+  const shares = useMemo(() => tokenCostShares(detail.summary), [detail.summary]);
 
   const copyPath = async (): Promise<void> => {
     try {
@@ -110,7 +113,12 @@ export default function SummaryTab() {
     { id: 'output', header: 'Output', numeric: true, cell: (row) => <Tokens value={row.tokens.output} /> },
     { id: 'write', header: 'Cache write', numeric: true, cell: (row) => <Tokens value={row.tokens.cache5m + row.tokens.cache1h} /> },
     { id: 'read', header: 'Cache read', numeric: true, cell: (row) => <Tokens value={row.tokens.cacheRead} /> },
-    { id: 'cost', header: 'Cost', numeric: true, cell: (row) => <Money usd={row.cost.total} className={styles.strong} /> },
+    { id: 'cost', header: 'Cost', numeric: true, cell: (row) => (
+      <span>
+        <Money usd={row.cost.total} className={styles.strong} />
+        {row.estimatedCost ? <> <EstimateBadge billedAs={{ label: row.estimatedAs ?? 'another model', usd: row.estimatedCost }} /></> : null}
+      </span>
+    ) },
   ];
 
   /**
@@ -212,6 +220,40 @@ export default function SummaryTab() {
               compare against.
             </p>
           )}
+        </div>
+      </section>
+
+      <section className="stack stack-sm" aria-label="Tokens versus cost by type">
+        <div className="section-head">
+          <h2>Tokens vs cost by type</h2>
+          <span className={styles.note}>
+            Cache hit{' '}
+            <strong className="num">{shares.cacheHitRatio === null ? 'unavailable' : formatPercent(shares.cacheHitRatio)}</strong>
+          </span>
+        </div>
+        <div className="panel panel-pad stack stack-sm">
+          <TokenBar
+            label="Tokens"
+            showLegend={false}
+            tokens={{ input: shares.classes[1]!.tokens, output: shares.classes[0]!.tokens, cache5m: shares.classes[2]!.tokens, cache1h: 0, cacheRead: shares.classes[3]!.tokens }}
+          />
+          {shares.classes.every((row) => row.costShare !== null) ? (
+            <TokenBar
+              label="Cost"
+              showLegend={false}
+              tokens={{ input: shares.classes[1]!.cost, output: shares.classes[0]!.cost, cache5m: shares.classes[2]!.cost, cache1h: 0, cacheRead: shares.classes[3]!.cost }}
+            />
+          ) : (
+            <p className={styles.note}>Cost by type is unavailable: this session has no known price.</p>
+          )}
+          <ul className={styles.note}>
+            {shares.classes.map((row) => (
+              <li key={row.id}>
+                {row.label}: {formatPercent(row.tokenShare)} of tokens · {row.costShare === null ? 'cost unavailable' : `${formatPercent(row.costShare)} of cost`}
+              </li>
+            ))}
+          </ul>
+          {shares.note ? <p className={styles.driver}>{shares.note}</p> : null}
         </div>
       </section>
 

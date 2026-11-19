@@ -62,6 +62,7 @@ export const pricingConfigSchema = z
     unknownModelPolicy: z.enum(['zero', 'fallbackModel']),
     fallbackModelKey: z.string().optional(),
     assumeCacheWriteTtlWhenUnknown: z.enum(['5m', '1h']),
+    estimateAs: z.record(nonEmpty, nonEmpty).optional(),
   })
   .superRefine((config, ctx) => {
     const seen = new Set<string>();
@@ -75,6 +76,15 @@ export const pricingConfigSchema = z
       }
       seen.add(model.key);
     });
+    for (const [model, target] of Object.entries(config.estimateAs ?? {})) {
+      if (!seen.has(target)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['estimateAs', model],
+          message: `estimateAs target "${target}" must name one of the configured models`,
+        });
+      }
+    }
     if (config.unknownModelPolicy === 'fallbackModel') {
       if (!config.fallbackModelKey || !seen.has(config.fallbackModelKey)) {
         ctx.addIssue({

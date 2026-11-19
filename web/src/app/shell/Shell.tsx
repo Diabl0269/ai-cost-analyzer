@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Outlet, ScrollRestoration, useLocation, useMatches } from 'react-router';
-import type { IndexEvent, IndexProgress } from '@core/types';
-import { useIndexEventStream, useStatus } from '@/lib/queries';
+import type { IndexEvent, IndexFailure, IndexProgress } from '@core/types';
+import { plural } from '@core/pricing/format';
+import { useIndexEventStream, useReindex, useStatus } from '@/lib/queries';
+import { Button } from '@/components';
 import { RailSlotContext, type RailSlotApi } from './rail';
 import { AppCommands } from './AppCommands';
 import { FirstRun } from './FirstRun';
@@ -55,8 +57,13 @@ export function Shell() {
   const [progress, setProgress] = useState<IndexProgress | null>(null);
   const [lastIndexedAt, setLastIndexedAt] = useState<string | null>(null);
   const [indexError, setIndexError] = useState<string | null | undefined>(undefined);
+  const [liveFailures, setLiveFailures] = useState<{ list: IndexFailure[]; count: number } | undefined>(undefined);
   const status = useStatus();
+  const reindex = useReindex();
   const visibleIndexError = indexError === undefined ? status.data?.indexError : indexError;
+  const failureList = liveFailures ? liveFailures.list : (status.data?.indexFailures ?? []);
+  const failureCount = liveFailures ? liveFailures.count : (status.data?.indexFailureCount ?? failureList.length);
+  const pillError = visibleIndexError ?? (failureCount > 0 ? `${plural(failureCount, 'session')} could not be indexed` : null);
 
   const onIndexEvent = useCallback((event: IndexEvent) => {
     switch (event.type) {
@@ -65,11 +72,13 @@ export function Shell() {
         break;
       case 'indexed':
         setIndexError(event.indexError ?? null);
+        setLiveFailures({ list: event.indexFailures ?? [], count: event.indexFailureCount ?? 0 });
         setProgress(null);
         setLastIndexedAt(event.at);
         break;
       case 'error':
         setIndexError(event.message);
+        setLiveFailures({ list: event.indexFailures ?? [], count: event.indexFailureCount ?? 0 });
         setProgress(null);
         break;
       case 'sessionsChanged':
@@ -80,6 +89,15 @@ export function Shell() {
 
   const stream = useIndexEventStream(onIndexEvent);
 
+  // Events missed while the stream was down would leave a stale live value shadowing the server,
+  // so on every (re)connect drop the live overrides and trust a fresh /api/status.
+  const refetchStatus = status.refetch;
+  useEffect(() => {
+    if (!stream.connected) return;
+    setIndexError(undefined);
+    setLiveFailures(undefined);
+    void refetchStatus();
+  }, [stream.connected, refetchStatus]);
   useEffect(() => {
     try {
       window.localStorage.setItem(RAIL_STORAGE_KEY, collapsed ? 'collapsed' : 'expanded');
@@ -146,7 +164,7 @@ export function Shell() {
           connected={stream.connected}
           sessionCount={status.data?.counts?.sessions}
           scratchSessions={status.data?.scratchSessions}
-          indexError={visibleIndexError}
+          indexError={pillError}
           roots={status.data?.roots}
           statusResolved={statusResolved}
           firstRun={firstRun}
@@ -161,7 +179,41 @@ export function Shell() {
           />
           {drawerOpen ? <button type="button" className={styles.drawerScrim} aria-label="Close navigation" onClick={() => setDrawerOpen(false)} /> : null}
           <main id="main" className={styles.main} ref={mainRef}>
-            {visibleIndexError ? <Callout tone="warn" title="Index incomplete">{visibleIndexError} Totals cover only the indexed files. Re-index all roots in Settings to retry.</Callout> : null}
+            {visibleIndexError || failureCount > 0 ? (
+              <Callout
+                tone="warn"
+                title="Index incomplete"
+                action={
+                  <div className="cluster">
+                    <Button variant="secondary" size="sm" disabled={reindex.isPending} onClick={() => reindex.mutate(false)}>
+                      Re-scan all roots
+                    </Button>
+                    <Button variant="ghost" size="sm" disabled={reindex.isPending} onClick={() => reindex.mutate(true)}>
+                      Rebuild from scratch
+                    </Button>
+                  </div>
+                }
+              >
+                {visibleIndexError ? <>{visibleIndexError} </> : null}
+                {failureCount > 0 ? <>{plural(failureCount, 'session')} could not be indexed and {failureCount === 1 ? 'is' : 'are'} missing from the totals. </> : null}
+                Totals cover only the indexed files.
+                {failureList.length > 0 ? (
+                  <details>
+                    <summary>Show affected sessions</summary>
+                    <ul className="ui-xs">
+                      {failureList.map((failure) => (
+                        <li key={failure.sessionId}>
+                          <code>{failure.sessionId}</code> ({failure.provider}, {failure.phase}) {failure.error}
+                          <br />
+                          <span className="muted">{failure.paths.join(', ')}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {failureCount > failureList.length ? <p className="ui-xs muted">…and {failureCount - failureList.length} more.</p> : null}
+                  </details>
+                ) : null}
+              </Callout>
+            ) : null}
             {!firstRun && range.provider !== 'claude' ? <p className="ui-xs muted" role="note">Codex, Copilot and OpenCode amounts are API-price estimates, not your subscription bill. Claude-only attribution is unavailable for these providers. Copilot request counts include only individually recorded calls.</p> : null}
             {showFirstRun ? <FirstRun roots={status.data?.roots ?? []} /> : <Outlet />}
           </main>

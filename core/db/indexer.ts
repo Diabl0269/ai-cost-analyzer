@@ -7,7 +7,8 @@
  * the session it was in the middle of.
  */
 import type { DatabaseSync } from 'node:sqlite';
-import type { DiscoveredSession, IndexProgress, ParsedSession, PricingConfig } from '../types.js';
+import { homedir } from 'node:os';
+import type { DiscoveredSession, DiscoverWarning, IndexFailure, IndexProgress, ParsedSession, PricingConfig } from '../types.js';
 import type { IndexResult, IndexerOptions } from '../store.js';
 import { defaultPricing } from '../pricing/defaults.js';
 import { META_LAST_INDEXED_AT, getMeta, openDatabase, resetDatabase, setMeta } from './schema.js';
@@ -67,16 +68,76 @@ function sessionExists(db: DatabaseSync, sessionId: string): boolean {
   return db.prepare('SELECT 1 FROM sessions WHERE id = ?').get(sessionId) !== undefined;
 }
 
-async function loadDiscover(opts: IndexerOptions): Promise<(roots: string[]) => Promise<DiscoveredSession[]>> {
-  if (opts.discover) return opts.discover;
-  const mod = await import('../discover.js');
-  return mod.discoverSessions;
+interface DiscoverOutcome {
+  sessions: DiscoveredSession[];
+  warnings: DiscoverWarning[];
+}
+
+async function loadDiscover(opts: IndexerOptions): Promise<(roots: string[]) => Promise<DiscoverOutcome>> {
+  if (opts.discover) {
+    const discover = opts.discover;
+    return async (roots) => ({ sessions: await discover(roots), warnings: [] });
+  }
+  const run = opts.discoverWithWarnings ?? (await import('../discover.js')).discoverSessionsWithWarnings;
+  return async (roots) => {
+    const { sessions, warnings } = await run(roots);
+    return {
+      sessions,
+      warnings: warnings.slice(0, MAX_DISCOVER_WARNINGS).map((w) => ({
+        path: homeRelative(w.path),
+        message: homeRelative(w.message).slice(0, MAX_FAILURE_ERROR),
+      })),
+    };
+  };
 }
 
 async function loadParse(opts: IndexerOptions): Promise<(s: DiscoveredSession) => Promise<ParsedSession>> {
   if (opts.parse) return opts.parse;
   const mod = await import('../parse/index.js');
   return mod.parseSession;
+}
+
+interface KnownFailure {
+  signature: string;
+  failure: IndexFailure;
+}
+
+const META_INDEX_FAILURES = 'index_failures';
+const MAX_FAILURE_ERROR = 300;
+const MAX_DISCOVER_WARNINGS = 50;
+
+function loadKnownFailures(db: DatabaseSync): Record<string, KnownFailure> {
+  const raw = getMeta(db, META_INDEX_FAILURES);
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, KnownFailure>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveKnownFailures(db: DatabaseSync, known: Record<string, KnownFailure>): void {
+  if (Object.keys(known).length === 0) db.prepare('DELETE FROM meta WHERE key = ?').run(META_INDEX_FAILURES);
+  else setMeta(db, META_INDEX_FAILURES, JSON.stringify(known));
+}
+
+/** Replaces the home directory with `~` so failures never expose the user's name or layout. */
+function homeRelative(text: string): string {
+  const home = homedir();
+  return home && home !== '/' ? text.split(home).join('~') : text;
+}
+
+function describeFailure(discovered: DiscoveredSession, phase: IndexFailure['phase'], error: unknown): IndexFailure {
+  const e = error as Error | undefined;
+  const text = `${e?.name || 'Error'}: ${e?.message ?? ''}`;
+  return {
+    sessionId: discovered.sessionId,
+    provider: discovered.provider ?? 'claude',
+    paths: filesOf(discovered).map((f) => homeRelative(f.path)),
+    phase,
+    error: homeRelative(text).slice(0, MAX_FAILURE_ERROR),
+  };
 }
 
 interface IndexPassArgs {
@@ -86,7 +147,7 @@ interface IndexPassArgs {
   pricing: PricingConfig;
   progress: Progress;
   signal?: AbortSignal;
-  /** when true, sessions are re-parsed even if their files are unchanged */
+  /** when true, sessions are re-parsed even if their files are unchanged (and known failures retried) */
   force: boolean;
 }
 
@@ -94,18 +155,28 @@ async function indexPass(args: IndexPassArgs): Promise<IndexResult> {
   const { db, sessions, parse, pricing, progress, signal, force } = args;
   const started = Date.now();
   const writer = new SessionWriter(db);
+  const knownFailures = loadKnownFailures(db);
   const result: IndexResult = {
     sessionsIndexed: 0,
     sessionsSkipped: 0,
     filesSeen: 0,
     parseErrors: 0,
     sessionsFailed: 0,
+    sessionsSkippedFailed: 0,
+    failures: [],
     durationMs: 0,
     changedSessionIds: [],
   };
 
   const filesTotal = sessions.reduce((sum, s) => sum + filesOf(s).length, 0);
   progress.update({ phase: 'parse', filesTotal, sessionsTotal: sessions.length, filesDone: 0, sessionsDone: 0 });
+
+  const recordFailure = (discovered: DiscoveredSession, signature: string, failure: IndexFailure): void => {
+    knownFailures[discovered.sessionId] = { signature, failure };
+    result.parseErrors += 1;
+    result.sessionsFailed = (result.sessionsFailed ?? 0) + 1;
+    result.failures?.push(failure);
+  };
 
   let filesDone = 0;
   let sessionsDone = 0;
@@ -115,13 +186,23 @@ async function indexPass(args: IndexPassArgs): Promise<IndexResult> {
     result.filesSeen += files.length;
     filesDone += files.length;
     sessionsDone += 1;
+    const signature = fileSignature(files);
 
     const unchanged =
       !force &&
       sessionExists(db, discovered.sessionId) &&
-      storedSignature(db, discovered.sessionId) === fileSignature(files);
+      storedSignature(db, discovered.sessionId) === signature;
     if (unchanged) {
       result.sessionsSkipped += 1;
+      delete knownFailures[discovered.sessionId];
+      progress.update({ filesDone, sessionsDone, currentProject: discovered.projectDirName });
+      continue;
+    }
+
+    const known = knownFailures[discovered.sessionId];
+    if (!force && known && known.signature === signature) {
+      result.sessionsSkippedFailed = (result.sessionsSkippedFailed ?? 0) + 1;
+      result.failures?.push(known.failure);
       progress.update({ filesDone, sessionsDone, currentProject: discovered.projectDirName });
       continue;
     }
@@ -131,8 +212,7 @@ async function indexPass(args: IndexPassArgs): Promise<IndexResult> {
     try {
       parsed = await parse(discovered);
     } catch (error) {
-      result.parseErrors += 1;
-      result.sessionsFailed = (result.sessionsFailed ?? 0) + 1;
+      recordFailure(discovered, signature, describeFailure(discovered, 'parse', error));
       progress.update({
         phase: 'parse',
         message: `parse failed for one session (${(error as Error).name || 'Error'})`,
@@ -148,16 +228,17 @@ async function indexPass(args: IndexPassArgs): Promise<IndexResult> {
     } catch (error) {
       db.exec('ROLLBACK');
       // One session that cannot be written must not stop the sessions after it from indexing.
-      result.parseErrors += 1;
-      result.sessionsFailed = (result.sessionsFailed ?? 0) + 1;
+      recordFailure(discovered, signature, describeFailure(discovered, 'write', error));
       progress.update({ phase: 'write', message: `write failed for one session (${(error as Error).name || 'Error'})` });
       continue;
     }
+    delete knownFailures[discovered.sessionId];
     result.parseErrors += parsed.main.meta.parseErrors;
     result.sessionsIndexed += 1;
     result.changedSessionIds.push(discovered.sessionId);
   }
 
+  saveKnownFailures(db, knownFailures);
   refreshProjects(db);
   setMeta(db, META_LAST_INDEXED_AT, new Date().toISOString());
   result.durationMs = Date.now() - started;
@@ -173,10 +254,16 @@ export async function runIndex(opts: IndexerRunOptions): Promise<IndexResult> {
     const progress = new Progress(opts.onProgress);
     progress.update({ phase: 'discover' });
     const discover = await loadDiscover(opts);
-    const sessions = await discover(opts.roots);
+    const { sessions, warnings } = await discover(opts.roots);
     progress.update({ sessionsTotal: sessions.length });
 
     const known = new Set(sessions.map((s) => s.sessionId));
+    const knownFailures = loadKnownFailures(db);
+    const staleFailures = Object.keys(knownFailures).filter((id) => !known.has(id));
+    if (staleFailures.length > 0) {
+      for (const id of staleFailures) delete knownFailures[id];
+      saveKnownFailures(db, knownFailures);
+    }
     const writer = new SessionWriter(db);
     const stale = (db.prepare('SELECT id FROM sessions').all() as Row[])
       .map((row) => str(row, 'id'))
@@ -202,8 +289,9 @@ export async function runIndex(opts: IndexerRunOptions): Promise<IndexResult> {
       ...(opts.signal ? { signal: opts.signal } : {}),
       force: opts.full === true || getMeta(db, META_PARSER_VERSION) !== PARSER_VERSION,
     });
-    if (!opts.signal?.aborted && !result.sessionsFailed) setMeta(db, META_PARSER_VERSION, PARSER_VERSION);
+    if (!opts.signal?.aborted) setMeta(db, META_PARSER_VERSION, PARSER_VERSION);
     result.changedSessionIds.push(...stale);
+    result.discoverWarnings = warnings;
     return result;
   } finally {
     db.close();
@@ -222,7 +310,7 @@ export async function indexChangedFiles(paths: string[], opts: IndexerRunOptions
     const progress = new Progress(opts.onProgress);
     progress.update({ phase: 'discover' });
     const discover = await loadDiscover(opts);
-    const all = await discover(opts.roots);
+    const { sessions: all, warnings } = await discover(opts.roots);
     // OpenCode sessions live inside one SQLite file; its write-ahead log signals the same change.
     const wanted = new Set(paths.map((p) => p.replace(/\.db-(?:wal|shm)$/, '.db')));
     const sessions = all.filter((session) =>
@@ -239,10 +327,11 @@ export async function indexChangedFiles(paths: string[], opts: IndexerRunOptions
         parseErrors: 0,
         durationMs: 0,
         changedSessionIds: [],
+        discoverWarnings: warnings,
       };
     }
     const parse = await loadParse(opts);
-    return await indexPass({
+    const result = await indexPass({
       db,
       sessions,
       parse,
@@ -251,6 +340,8 @@ export async function indexChangedFiles(paths: string[], opts: IndexerRunOptions
       ...(opts.signal ? { signal: opts.signal } : {}),
       force: false,
     });
+    result.discoverWarnings = warnings;
+    return result;
   } finally {
     db.close();
   }

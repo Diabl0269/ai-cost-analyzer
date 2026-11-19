@@ -5,16 +5,22 @@
  */
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
-import type { IndexEvent, IndexProgress, PricingConfig } from '../core/types.js';
+import type { DiscoverWarning, IndexEvent, IndexFailure, IndexProgress, PricingConfig } from '../core/types.js';
 import type { IndexResult } from '../core/store.js';
 import type { WorkerMessage, RunMessage } from './worker.js';
+
+export const MAX_REPORTED_FAILURES = 50;
 
 /** What kind of index run to perform; also the coalescing priority order (see MODE_RANK). */
 export type IndexMode = 'full' | 'rescan' | 'incremental';
 
 export interface IndexManagerStatus {
-  /** A successful incremental run does not repair an incomplete root scan. */
+  /** Run-level failure (worker crash, discovery, DB). A successful incremental run does not repair it. */
   error?: string;
+  /** Sessions that could not be parsed/written; independent of `error`. */
+  indexFailures?: IndexFailure[];
+  /** Non-fatal discovery warnings from the latest pass. */
+  discoverWarnings?: DiscoverWarning[];
   indexing: boolean;
   progress?: IndexProgress;
   lastIndexedAt: string | null;
@@ -71,6 +77,8 @@ function spawnWorker(workerPath: string): Worker {
 
 class IndexManagerImpl implements IndexManagerLike {
   private error: string | undefined;
+  private failures: IndexFailure[] = [];
+  private warnings: DiscoverWarning[] = [];
   private running = false;
   private runningMode: Mode | null = null;
   private currentWorker: Worker | null = null;
@@ -85,7 +93,14 @@ class IndexManagerImpl implements IndexManagerLike {
   }
 
   status(): IndexManagerStatus {
-    return { indexing: this.running, progress: this.progress, lastIndexedAt: this.lastIndexedAt, error: this.error };
+    return {
+      indexing: this.running,
+      progress: this.progress,
+      lastIndexedAt: this.lastIndexedAt,
+      error: this.error,
+      indexFailures: this.failures,
+      discoverWarnings: this.warnings,
+    };
   }
 
   requestFull(): void {
@@ -169,23 +184,41 @@ class IndexManagerImpl implements IndexManagerLike {
     this.progress = undefined;
     if (msg.type === 'done') {
       if (mode) this.opts.onRunComplete?.(mode, msg.result);
-      if (msg.result.sessionsFailed) {
-        this.error = `${msg.result.sessionsFailed} session(s) could not be parsed. The index is incomplete; retry indexing all roots.`;
-        this.opts.broadcast({ type: 'error', message: this.error });
-        this.maybeStartPending();
-        return;
-      }
+      this.updateFailures(mode, msg.result);
+      if (msg.result.discoverWarnings) this.warnings = msg.result.discoverWarnings;
       this.lastIndexedAt = new Date().toISOString();
+      // Run-level errors clear only after a whole-root pass; per-session failures live in
+      // `failures` and never block that.
       if (mode === 'full' || mode === 'rescan') this.error = undefined;
-      this.opts.broadcast({ type: 'indexed', at: this.lastIndexedAt, ...(this.error ? { indexError: this.error } : {}) });
+      this.opts.broadcast({
+        type: 'indexed',
+        at: this.lastIndexedAt,
+        ...(this.error ? { indexError: this.error } : {}),
+        ...this.failureFields(),
+      });
       if (msg.result.changedSessionIds.length > 0) {
         this.opts.broadcast({ type: 'sessionsChanged', sessionIds: msg.result.changedSessionIds });
       }
     } else {
       this.error = msg.message;
-      this.opts.broadcast({ type: 'error', message: msg.message });
+      this.opts.broadcast({ type: 'error', message: msg.message, ...this.failureFields() });
     }
     this.maybeStartPending();
+  }
+
+  private updateFailures(mode: Mode | null, result: IndexResult): void {
+    const current = result.failures ?? [];
+    if (mode === 'full' || mode === 'rescan') {
+      this.failures = [...current];
+      return;
+    }
+    const touched = new Set([...result.changedSessionIds, ...current.map((f) => f.sessionId)]);
+    this.failures = [...this.failures.filter((f) => !touched.has(f.sessionId)), ...current];
+  }
+
+  private failureFields(): { indexFailures?: IndexFailure[]; indexFailureCount?: number } {
+    if (this.failures.length === 0) return {};
+    return { indexFailures: this.failures.slice(0, MAX_REPORTED_FAILURES), indexFailureCount: this.failures.length };
   }
 
   private maybeStartPending(): void {

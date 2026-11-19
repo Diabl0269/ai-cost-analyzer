@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { PlanPreset, UserSettings } from '@core/types';
 import { PLAN_PRESETS, applyPlanPreset } from '@core/settings';
 import { Button, Callout, NumberField, SegmentedControl, Select, Skeleton, Switch, useToast } from '@/components';
+import { PROVIDERS } from '@/lib/provider';
 import { useCurrency } from '@/lib/currency';
 import { formatMoney } from '@/lib/format';
 import { applyMotionPreference, type MotionPreference } from '@/lib/motion';
@@ -200,6 +201,20 @@ export default function SettingsPage() {
                     label="Hide scratch projects"
                     description="Projects whose working directory sits under /tmp or /private/var/folders — throwaway sessions that would otherwise crowd the project tree."
                   />
+                  {PROVIDERS.map((provider) => (
+                    <Switch
+                      key={provider.value}
+                      checked={!current.hiddenProviders.includes(provider.value)}
+                      onChange={(checked) => commit({
+                        ...current,
+                        hiddenProviders: checked
+                          ? current.hiddenProviders.filter((hidden) => hidden !== provider.value)
+                          : [...current.hiddenProviders, provider.value],
+                      }, 'Preference saved')}
+                      label={`Show ${provider.label}`}
+                      description={`Offer ${provider.label} in the provider filter and the menu-bar summary. Its sessions stay indexed.`}
+                    />
+                  ))}
                 </div>
               </Section>
 

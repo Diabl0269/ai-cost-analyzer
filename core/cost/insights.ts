@@ -11,6 +11,8 @@ import { displayNameOf } from '../db/projects.js';
 
 const MAX_SESSIONS_PER_INSIGHT = 5;
 const LONG_CONTEXT_TOKENS = 150_000;
+const INPUT_HEAVY_RATIO = 50;
+const INPUT_HEAVY_MIN_INPUT_TOKENS = 100_000;
 
 /** What `core/db/analytics.ts` calls a hook run with no `hookName` in the transcript. */
 const UNNAMED_HOOK = '(unnamed)';
@@ -58,6 +60,8 @@ export interface InsightSessionRow {
   /** cold-cache requests that follow an idle gap longer than the cache TTL */
   idleGapExpiries: number;
   idleGapCost: number;
+  /** source tool; absent means unknown and gets generic advice */
+  provider?: 'claude' | 'codex' | 'copilot' | 'opencode';
 }
 
 /** One (session, model) bucket, split by whether the spend happened in a subagent. */
@@ -70,6 +74,10 @@ export interface InsightModelRow {
   requests: number;
   cost: number;
   usage: TokenUsage;
+  /** the model has no price: `cost` excludes it */
+  unpriced?: boolean;
+  /** labeled `estimateAs` USD for an unpriced model; never part of `cost` */
+  estimatedCost?: number;
 }
 
 export interface InsightToolRow {
@@ -302,19 +310,90 @@ export function computeInsights(input: InsightsInput, ctx: QueryContext): Insigh
     const avg =
       longSessions.reduce((sum, s) => sum + s.contextTokensTotal, 0) /
       Math.max(1, longSessions.reduce((sum, s) => sum + s.requestCount, 0));
+    // Rough: if each session's average context had stayed at the threshold, cost scales with it.
+    const estSaving = longSessions.reduce((sum, s) => {
+      const sessionAvg = s.contextTokensTotal / s.requestCount;
+      return sum + s.cost * (1 - LONG_CONTEXT_TOKENS / sessionAvg);
+    }, 0);
+    const providers = new Set(longSessions.map((s) => s.provider ?? 'unknown'));
+    const only = providers.size === 1 ? [...providers][0] : undefined;
+    const advice =
+      only === 'claude'
+        ? 'Run /compact (or /clear between tasks) before the context grows this large.'
+        : only === 'codex'
+          ? 'Start a new Codex thread for the next task instead of continuing this one.'
+          : providers.has('claude') || providers.has('codex')
+            ? 'Run /compact in Claude Code sessions and start a new thread in Codex.'
+            : 'Splitting the work into fresh sessions keeps the per-request context, and the bill, flat.';
+    const carry = byCarry[0];
+    const carryNote =
+      carry && carry.carryCost > 0
+        ? ` The largest carried tool output in range is ${carry.name} (${formatMoney(carry.carryCost)}).`
+        : '';
     out.push({
       id: 'long-context-sessions',
       title: `${plural(longSessions.length, 'session')} ran above ${formatTokens(LONG_CONTEXT_TOKENS)} average context`,
       explanation:
         `Every request in a long session re-sends the whole conversation. These sessions cost ` +
-        `${formatMoney(cost)} at an average context of ${formatTokens(avg)}. Splitting the work into fresh ` +
-        `sessions keeps the per-request context, and the bill, flat.`,
+        `${formatMoney(cost)} at an average context of ${formatTokens(avg)}. ${advice}` +
+        (estSaving > 0.005
+          ? ` Holding context near ${formatTokens(LONG_CONTEXT_TOKENS)} would save roughly ${formatMoney(estSaving)} (estimate).`
+          : '') +
+        carryNote,
       impactUsd: cost,
       kind: 'waste',
       sessions: topSessions(
         longSessions.map((s) => ({ sessionId: s.sessionId, title: s.title, amount: s.cost })),
       ),
       metric: { label: 'average context', value: formatTokens(avg) },
+    });
+  }
+
+  // 7b. Unpriced models that are almost all input.
+  const unpricedByModel = new Map<
+    string,
+    { input: number; output: number; estimate: number; hasEstimate: boolean; sessions: Map<string, InsightSessionRef> }
+  >();
+  for (const row of input.sessionModels) {
+    if (!row.unpriced) continue;
+    const entry = unpricedByModel.get(row.model) ?? {
+      input: 0,
+      output: 0,
+      estimate: 0,
+      hasEstimate: false,
+      sessions: new Map<string, InsightSessionRef>(),
+    };
+    const inputTokens = row.usage.input + row.usage.cacheRead + row.usage.cache5m + row.usage.cache1h;
+    entry.input += inputTokens;
+    entry.output += row.usage.output;
+    if (row.estimatedCost !== undefined) {
+      entry.hasEstimate = true;
+      entry.estimate += row.estimatedCost;
+    }
+    const ref = entry.sessions.get(row.sessionId) ?? { sessionId: row.sessionId, title: row.title, amount: 0 };
+    ref.amount += row.estimatedCost ?? 0;
+    entry.sessions.set(row.sessionId, ref);
+    unpricedByModel.set(row.model, entry);
+  }
+  const heavy = [...unpricedByModel.entries()]
+    .filter(([, e]) => e.input >= INPUT_HEAVY_MIN_INPUT_TOKENS && (e.output === 0 || e.input / e.output > INPUT_HEAVY_RATIO))
+    .sort((a, b) => b[1].input - a[1].input)[0];
+  if (heavy) {
+    const [model, entry] = heavy;
+    const ratio = entry.output > 0 ? `${Math.round(entry.input / entry.output)}:1` : 'no output';
+    out.push({
+      id: 'input-heavy-unpriced',
+      title: `${model} read ${formatTokens(entry.input)} input tokens for ${formatTokens(entry.output)} output (${ratio})`,
+      explanation:
+        `This model has no published price, so its spend is not in the totals. Input-to-output this lopsided ` +
+        `usually means a reviewer or classifier re-reading context, which is cheap per token but adds up.` +
+        (entry.hasEstimate
+          ? ` Billed as its estimate target it would cost about ${formatMoney(entry.estimate)} (estimate).`
+          : ` Set an estimate in Settings to see a dollar figure.`),
+      impactUsd: entry.hasEstimate ? entry.estimate : 0,
+      kind: 'info',
+      sessions: topSessions([...entry.sessions.values()]),
+      metric: { label: 'input tokens', value: formatTokens(entry.input) },
     });
   }
 

@@ -152,14 +152,35 @@ function priceFor(model: ModelPrice, flags: PriceFlags, pricing: PricingConfig, 
   };
 }
 
+/** Exact normalized-id lookup in `pricing.estimateAs`; variants and prefixes never match. */
+function estimateTargetKey(model: string, pricing: PricingConfig): string | undefined {
+  const map = pricing.estimateAs;
+  if (!map) return undefined;
+  const norm = normalizeModelId(model);
+  for (const [id, key] of Object.entries(map)) {
+    if (normalizeModelId(id) === norm) return key;
+  }
+  return undefined;
+}
+
 /**
  * Resolve USD-per-token prices for one billed unit.
- * Unknown models follow `pricing.unknownModelPolicy`; either way `unpriced` is true so the UI
+ * An unknown model with an exact `pricing.estimateAs` entry is priced at the target's rates but
+ * stays `unpriced` and is flagged `estimated`; money.ts keeps that out of recorded cost.
+ * Other unknown models follow `pricing.unknownModelPolicy`; either way `unpriced` is true so the UI
  * can flag the number as not trustworthy.
  */
 export function resolvePrice(model: string, flags: PriceFlags, pricing: PricingConfig): ResolvedPrice {
   const found = findModelPrice(model, pricing);
   if (found) return priceFor(found, flags, pricing, false);
+  const estimateKey = estimateTargetKey(model, pricing);
+  if (estimateKey) {
+    const target = pricing.models.find((m) => m.key === estimateKey);
+    if (target) {
+      const priced = priceFor(target, flags, pricing, true);
+      return { ...priced, modelKey: null, label: model, estimated: true, estimatedAs: target.key };
+    }
+  }
   if (pricing.unknownModelPolicy === 'fallbackModel' && pricing.fallbackModelKey) {
     const fallback = pricing.models.find((m) => m.key === pricing.fallbackModelKey);
     if (fallback) return priceFor(fallback, flags, pricing, true);

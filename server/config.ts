@@ -7,7 +7,7 @@
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import type { PricingConfig, UserSettings } from '../core/types.js';
-import { defaultPricing, withDefaultOpenAIModels } from '../core/pricing/defaults.js';
+import { defaultPricing, withDefaultModels } from '../core/pricing/defaults.js';
 import { pricingConfigSchema } from '../core/pricing/schema.js';
 import { defaultSettings, userSettingsSchema } from '../core/settings.js';
 import { ensureFileMode, ensureHomeDir } from './paths.js';
@@ -56,7 +56,7 @@ export class ConfigStore {
         const raw = parseConfigFile(readFileSync(configPath, 'utf8'));
         const pricingResult = pricingConfigSchema.safeParse(raw.pricing);
         if (pricingResult.success) {
-          pricing = withDefaultOpenAIModels(pricingResult.data);
+          pricing = withDefaultModels(pricingResult.data);
           upgraded = pricing !== pricingResult.data;
         } else {
           warnings.push({ message: 'config.json pricing section is invalid; using defaults' });

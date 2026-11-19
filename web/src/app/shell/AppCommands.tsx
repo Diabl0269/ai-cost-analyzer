@@ -99,8 +99,8 @@ export function AppCommands() {
     const actions: Command[] = [
       {
         id: 'reindex',
-        title: 'Re-index transcripts',
-        subtitle: 'Incremental',
+        title: 'Re-scan all roots',
+        subtitle: 'Skips unchanged files',
         group: 'Action',
         icon: 'download',
         run: () => {

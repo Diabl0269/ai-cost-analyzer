@@ -1,5 +1,6 @@
-/** `GET /api/analytics/{overview,tools,models,hooks,attribution,insights}` */
+/** `GET /api/analytics/{overview,summary,tools,models,hooks,attribution,insights}` */
 import { Hono } from 'hono';
+import type { SummaryResponse } from '../../core/types.js';
 import type { AppDeps } from '../deps.js';
 import { queryContext } from '../deps.js';
 import { rangeQuerySchema } from '../schemas.js';
@@ -12,6 +13,20 @@ export function analyticsRoutes(deps: AppDeps): Hono {
     const query = parseQuery(c, rangeQuerySchema);
     if (!query.ok) return query.response;
     return c.json(await deps.store.overview(query.data, queryContext(deps.config)));
+  });
+
+  app.get('/summary', async (c) => {
+    const summary = await deps.store.summary(queryContext(deps.config));
+    const idx = deps.index.status();
+    const failures = idx.indexFailures?.length ?? 0;
+    const response: SummaryResponse = {
+      ...summary,
+      indexing: idx.indexing,
+      ...(idx.error ? { indexError: idx.error } : {}),
+      ...(failures > 0 ? { indexFailureCount: failures } : {}),
+      lastIndexedAt: idx.lastIndexedAt,
+    };
+    return c.json(response);
   });
 
   app.get('/tools', async (c) => {

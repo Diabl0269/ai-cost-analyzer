@@ -37,8 +37,10 @@ export function DataSection() {
     reindex.mutate(full, {
       onSuccess: () =>
         toast({
-          title: full ? 'Rebuilding the index' : 'Re-indexing',
-          description: full ? 'The database is dropped and rebuilt from the transcripts.' : 'Only files that changed are re-read.',
+          title: full ? 'Rebuilding the index' : 'Re-scanning all roots',
+          description: full
+            ? 'The database is dropped and rebuilt from the transcripts.'
+            : 'Every root is scanned again; unchanged sessions are skipped and sessions that previously failed are retried only if their files changed.',
           tone: 'info',
         }),
       onError: () => toast({ title: 'Could not start indexing', tone: 'cost' }),
@@ -72,7 +74,7 @@ export function DataSection() {
               <h3>Index</h3>
               <div className="cluster">
                 <Button variant="secondary" size="sm" disabled={indexing || reindex.isPending} onClick={() => run(false)}>
-                  Re-index changed files
+                  Re-scan all roots
                 </Button>
                 <Button variant="danger" size="sm" disabled={indexing || reindex.isPending} onClick={() => setRebuildOpen(true)}>
                   Rebuild from scratch
@@ -142,6 +144,45 @@ export function DataSection() {
               ) : null}
             </div>
           </div>
+
+          {data.indexError || (data.indexFailures?.length ?? 0) > 0 || (data.discoverWarnings?.length ?? 0) > 0 ? (
+            <div className={styles.card}>
+              <h3>Index problems</h3>
+              {data.indexError ? <p className="ui-xs muted-2">Last run: {data.indexError}</p> : null}
+              {data.indexFailures?.length ? (
+                <>
+                  <p className="ui-xs muted-2">
+                    {plural(data.indexFailureCount ?? data.indexFailures.length, 'session')} could not be indexed. They are retried
+                    when their files change, on a rebuild, or after a parser upgrade.
+                  </p>
+                  <ul className={styles.rootList} style={{ marginTop: 'var(--s2)' }}>
+                    {data.indexFailures.map((failure) => (
+                      <li key={failure.sessionId} className={styles.root}>
+                        {failure.provider} · {failure.phase} · {failure.error}
+                        <br />
+                        {failure.paths.join(', ')}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+              {data.discoverWarnings?.length ? (
+                <>
+                  <p className="ui-xs muted-2" style={{ marginTop: 'var(--s2)' }}>
+                    Discovery could not read or place {plural(data.discoverWarningCount ?? data.discoverWarnings.length, 'path')}.
+                    This is not fatal; the rest of the history was indexed.
+                  </p>
+                  <ul className={styles.rootList} style={{ marginTop: 'var(--s2)' }} aria-label="Discovery warnings">
+                    {data.discoverWarnings.map((warning) => (
+                      <li key={`${warning.path}:${warning.message}`} className={styles.root}>
+                        {warning.path} · {warning.message}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+            </div>
+          ) : null}
 
           <Callout tone="info" title="The index is a cache">
             Nothing here is your data: the database is rebuilt from the JSONL transcripts on disk, and deleting it costs

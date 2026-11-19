@@ -29,3 +29,33 @@ it('retains auto-review usage and unknown-price warnings through indexed statist
     } finally { store.close(); }
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
+
+it('keeps estimated auto-review cost separate from recorded totals and exports costStatus estimated', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'cca-auto-review-est-'));
+  const sessions = join(home, 'sessions'); mkdirSync(sessions);
+  const fixture = readFileSync(resolve('tests/fixtures/codex/sessions/2026/09/07/rollout-2026-09-07-codex-demo.jsonl'), 'utf8');
+  writeFileSync(join(sessions, 'rollout-review.jsonl'), fixture.replaceAll('gpt-5.3-codex', 'codex-auto-review'));
+  const dbPath = join(home, 'index.sqlite'); const pricing = defaultPricing();
+  pricing.estimateAs = { 'codex-auto-review': pricing.models.find((m) => m.key.startsWith('gpt-'))!.key };
+  const ctx = { pricing, settings: { ...defaultSettings(), hideScratchProjects: false }, now: new Date('2026-11-05T12:00:00Z') };
+  const range = { from: '2000-01-01', to: '2100-01-01', provider: 'codex' as const };
+  try {
+    await runIndex({ roots: [sessions], dbPath, pricing });
+    const store = createStore(dbPath);
+    try {
+      const list = await store.listSessions(range, ctx);
+      expect(list.sessions[0]?.cost.total).toBe(0);
+      expect(list.sessions[0]?.unpriced).toBe(true);
+      expect(list.sessions[0]?.estimatedCost).toBeGreaterThan(0);
+      expect(list.totalCost).toBe(0);
+      expect(list.totalEstimatedCost).toBe(list.sessions[0]?.estimatedCost);
+      const overview = await store.overview(range, ctx);
+      expect(overview.totals.cost.total).toBe(0);
+      expect(overview.totals.estimatedCost).toBe(list.totalEstimatedCost);
+      expect(overview.unpricedModels).toEqual(['codex-auto-review']);
+      expect((await store.status(ctx)).unpricedModels).toEqual(['codex-auto-review']);
+      const csv = await store.exportSessionsCsv(range, ctx);
+      expect(csv).toContain(',estimated,'); expect(csv).not.toContain(',codex,unpriced,');
+    } finally { store.close(); }
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
