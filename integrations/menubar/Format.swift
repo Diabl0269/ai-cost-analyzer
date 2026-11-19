@@ -35,7 +35,13 @@ let providerNames: [(String, String)] = [
     ("claude", "Claude Code"), ("codex", "Codex"), ("copilot", "Copilot"), ("opencode", "OpenCode"),
 ]
 
-func usd(_ v: Double) -> String { String(format: "$%.2f", v) }
+func usd(_ v: Double) -> String {
+    let abs = Swift.abs(v)
+    if abs == 0 { return "$0.00" }
+    if abs < 0.0001 { return v < 0 ? "-<$0.0001" : "<$0.0001" }
+    if abs < 0.01 { return String(format: "$%.4f", v) }
+    return String(format: "$%.2f", v)
+}
 
 func money(_ u: Usage) -> String {
     guard let c = u.cost else { return u.costStatus == "unpriced" ? "unpriced" : "n/a" }
