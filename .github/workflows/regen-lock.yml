@@ -1,10 +1,9 @@
 name: regenerate lockfile
 on:
-  workflow_dispatch:
   pull_request:
     paths:
       - package.json
-      - .github/workflows/regen-lock.yml
+      - package-lock.json
 jobs:
   regenerate:
     runs-on: ubuntu-latest
@@ -16,5 +15,5 @@ jobs:
       - run: npm install --package-lock-only --ignore-scripts
       - uses: actions/upload-artifact@v4
         with:
-          name: package-lock
+          name: package-lock-final
           path: package-lock.json

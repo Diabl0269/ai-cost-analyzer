@@ -60,6 +60,9 @@
     "react-router": "^7.9.0",
     "zod": "^4.6.6"
   },
+  "overrides": {
+    "source-map-js": "1.2.2"
+  },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.0",
     "@playwright/test": "^1.55.0",
