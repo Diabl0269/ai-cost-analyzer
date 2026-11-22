@@ -252,6 +252,10 @@ export default function SessionsPage() {
             <Tooltip content="This rollout contains assistant messages but no recorded token usage. Its cost is unavailable.">
               <span className="muted">Unavailable</span>
             </Tooltip>
+          ) : session.unpriced && session.cost.total === 0 ? (
+            <Tooltip content="Recorded tokens have no configured model price. The cost is unknown, not zero.">
+              <span className="muted">Unpriced</span>
+            </Tooltip>
           ) : <Money usd={session.cost.total} className={styles.cost} />}
           {session.usageIncomplete && !hasNoRecordedUsage(session) ? (
             <Tooltip content="Some token usage is missing. This total covers recorded tokens only.">
