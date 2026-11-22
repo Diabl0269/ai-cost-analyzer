@@ -108,6 +108,13 @@ describe('enable / disable / status', () => {
     await expect(enableAutostart({ port: 4141 }, deps)).rejects.toThrow(/bootstrap failed: Input\/output error/);
   });
 
+  it('enable waits for readiness and fails clearly when the server never starts', async () => {
+    const { deps } = makeDeps({ probe: async () => false });
+    await expect(enableAutostart({ port: 4141 }, deps)).rejects.toThrow(
+      'server did not become ready on port 4141; check /Users/dev/Library/Logs/ai-cost-analyzer/server.err.log',
+    );
+  }, 15_000);
+
   it('disable boots out and deletes the plist', async () => {
     const { deps, calls, files } = makeDeps();
     await enableAutostart({ port: 4141 }, deps);

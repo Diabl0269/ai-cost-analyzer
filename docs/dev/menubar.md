@@ -29,8 +29,10 @@ ai-cost-analyzer menubar uninstall
 
 - Auth mirrors the plugin: `POST /api/auth/session` (answers 204) into an ephemeral cookie store,
   then `GET /api/analytics/summary`. Any failure → title `⚠ offline`.
-- Offline menu: **Start server** runs `<node> <cli.js> autostart enable --port N`. The app does not
-  manage autostart itself. Node and `cli.js` paths are baked into `Contents/Resources/config.json`
+- Offline menu: **Start server** runs `<node> <cli.js> autostart enable --port N` and shows a failure
+  item when stale paths or a nonzero launch prevent startup. Enabling waits for an authenticated probe
+  or times out with the server log path. The app does not manage autostart itself. Node and `cli.js`
+  paths are baked into `Contents/Resources/config.json`
   at build time (the app is launched without your shell environment); override with `CCA_NODE`,
   `CCA_CLI`, `CCA_PORT` or `--node`, `--cli`, `--port`. Rebuild (`menubar install`) if Node moves.
 - Port: `CCA_PORT` or `--port` (default 4141), baked in at build via `--port`/`CCA_PORT`.

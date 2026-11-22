@@ -198,6 +198,13 @@ export async function enableAutostart(opts: AutostartOptions, deps: AutostartDep
   if (boot.code !== 0) throw new Error(`launchctl bootstrap failed: ${boot.stderr.trim() || `exit ${boot.code}`}`);
   const kick = await deps.exec('launchctl', ['kickstart', '-k', target(deps)]);
   if (kick.code !== 0) throw new Error(`launchctl kickstart failed: ${kick.stderr.trim() || `exit ${kick.code}`}`);
+  const deadline = Date.now() + 10_000;
+  while (!(await deps.probe(opts.port)) && Date.now() < deadline) {
+    await new Promise((done) => setTimeout(done, 250));
+  }
+  if (!(await deps.probe(opts.port))) {
+    throw new Error(`server did not become ready on port ${opts.port}; check ${join(logDir, 'server.err.log')}`);
+  }
   deps.log(`autostart enabled: http://127.0.0.1:${opts.port}`);
   deps.log(`logs: ${logDir}`);
 }
