@@ -7,7 +7,8 @@ import type { ModelPrice, PricingConfig, TokenPrices } from '../types.js';
 
 export const OPENAI_PRICING_SOURCE = 'https://developers.openai.com/api/docs/pricing (2026-11-05)';
 export const GITHUB_COPILOT_PRICING_SOURCE = 'https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing#microsoft (2026-11-19)';
-export const PRICING_SOURCE = `platform.claude.com/docs/en/about-claude/pricing (2026-11-19); ${OPENAI_PRICING_SOURCE}; GitHub Copilot models: ${GITHUB_COPILOT_PRICING_SOURCE}`;
+export const GOOGLE_PRICING_SOURCE = 'https://aistudio.google.com/docs/whats-new-gemini-4-neon (2026-11-23)';
+export const PRICING_SOURCE = `platform.claude.com/docs/en/about-claude/pricing (2026-11-19); ${OPENAI_PRICING_SOURCE}; GitHub Copilot models: ${GITHUB_COPILOT_PRICING_SOURCE}; Google models: ${GOOGLE_PRICING_SOURCE}`;
 
 const CPT_MODERN = 3.1;
 const CPT_LEGACY = 4.0;
@@ -83,6 +84,16 @@ export function addedDefaultModels(): ModelPrice[] {
     claude('haiku-5.5', 'Claude Haiku 5.5', 'haiku', prices(0.1, 0.5, 0.125, 0.2, 0.01), {
       longContext: { threshold: 100_000, inputMultiplier: 5, outputMultiplier: 5 },
     }),
+    {
+      key: 'gemini-4-neon',
+      label: 'Gemini 4 Neon',
+      match: ['gemini-4-neon'],
+      exact: true,
+      ...prices(3, 15, 0, 0, 0.15),
+      supportsUsGeo: false,
+      charsPerToken: CPT_LEGACY,
+      family: 'other',
+    },
     {
       key: 'mai-code-1.1-flash',
       label: 'MAI-Code-1.1-Flash',

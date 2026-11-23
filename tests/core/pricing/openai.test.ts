@@ -121,6 +121,15 @@ describe('models added 2026-11-19', () => {
     expect(resolve('claude-mythos-5-2').perToken.input).toBeCloseTo(8 / 1e6);
     expect(resolve('claude-opus-5').perToken.input).toBeCloseTo(5 / 1e6);
   });
+  it('prices Gemini 4 Neon exactly, including its 95% implicit cache discount', () => {
+    const price = resolve('gemini-4-neon');
+    expect(price.unpriced).toBe(false);
+    expect(price.perToken.input).toBeCloseTo(3 / 1e6);
+    expect(price.perToken.output).toBeCloseTo(15 / 1e6);
+    expect(price.perToken.cacheRead).toBeCloseTo(0.15 / 1e6);
+    expect(price.perToken.cacheWrite5m).toBe(0);
+    expect(resolve('gemini-4-neon-preview').unpriced).toBe(true);
+  });
   it('prices MAI-Code-1.1-Flash exactly, without variants inheriting it', () => {
     const price = resolve('mai-code-1.1-flash');
     expect(price.unpriced).toBe(false);
@@ -151,7 +160,7 @@ describe('models added 2026-11-19', () => {
   });
   it('upgrades saved zero-write GPT-6 rows and adds new models, but keeps edited rows', () => {
     const saved = structuredClone(pricing);
-    saved.models = saved.models.filter((m) => !['haiku-5.5', 'mai-code-1.1-flash', 'mai-code-2', 'mai-code-2-flash', 'opus-5.5'].includes(m.key));
+    saved.models = saved.models.filter((m) => !['gemini-4-neon', 'haiku-5.5', 'mai-code-1.1-flash', 'mai-code-2', 'mai-code-2-flash', 'opus-5.5'].includes(m.key));
     const sol = saved.models.find((m) => m.key === 'gpt-6.1-sol')!;
     sol.cacheWrite5m = 0; sol.cacheWrite1h = 0;
     const edited = saved.models.find((m) => m.key === 'gpt-6-sol')!;
@@ -159,6 +168,6 @@ describe('models added 2026-11-19', () => {
     const loaded = withDefaultModels(saved);
     expect(loaded.models.find((m) => m.key === 'gpt-6.1-sol')!.cacheWrite5m).toBe(2.5);
     expect(loaded.models.find((m) => m.key === 'gpt-6-sol')!.cacheWrite5m).toBe(0);
-    for (const key of ['haiku-5.5', 'mai-code-1.1-flash', 'mai-code-2', 'mai-code-2-flash', 'opus-5.5']) expect(loaded.models.some((m) => m.key === key)).toBe(true);
+    for (const key of ['gemini-4-neon', 'haiku-5.5', 'mai-code-1.1-flash', 'mai-code-2', 'mai-code-2-flash', 'opus-5.5']) expect(loaded.models.some((m) => m.key === key)).toBe(true);
   });
 });
