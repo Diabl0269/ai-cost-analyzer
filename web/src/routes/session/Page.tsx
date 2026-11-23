@@ -87,7 +87,7 @@ export default function SessionPage() {
         </div>
         <p className={styles.total}>
           <span className="eyebrow">Session total</span>
-          {hasNoRecordedUsage(data.summary) ? <span>Unavailable</span> : <Money usd={data.summary.cost.total} display />}
+          {hasNoRecordedUsage(data.summary) ? <span>Unavailable</span> : data.summary.unpriced && data.summary.cost.total === 0 ? <span>Unpriced</span> : <Money usd={data.summary.cost.total} display />}
         </p>
       </div>
       {whatIf.active ? (
