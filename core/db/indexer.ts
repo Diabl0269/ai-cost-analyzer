@@ -18,7 +18,7 @@ import { str, num, type Row } from './rows.js';
 import { splitOpenCodePath } from '../opencode/db.js';
 
 /** Bump when derived parser facts change even if transcript bytes and DB columns do not. */
-export const PARSER_VERSION = '4';
+export const PARSER_VERSION = '5';
 export const META_PARSER_VERSION = 'parser_version';
 
 export interface IndexerRunOptions extends IndexerOptions {
@@ -312,7 +312,15 @@ export async function indexChangedFiles(paths: string[], opts: IndexerRunOptions
     const discover = await loadDiscover(opts);
     const { sessions: all, warnings } = await discover(opts.roots);
     // OpenCode sessions live inside one SQLite file; its write-ahead log signals the same change.
-    const wanted = new Set(paths.map((p) => p.replace(/\.db-(?:wal|shm)$/, '.db')));
+    // Antigravity writes compact `transcript.jsonl` alongside `transcript_full.jsonl`.
+    const wanted = new Set<string>();
+    for (const p of paths) {
+      const normalized = p.replace(/\.db-(?:wal|shm)$/, '.db');
+      wanted.add(normalized);
+      if (normalized.endsWith('/transcript.jsonl') || normalized.endsWith('\\transcript.jsonl')) {
+        wanted.add(normalized.replace(/transcript\.jsonl$/, 'transcript_full.jsonl'));
+      }
+    }
     const sessions = all.filter((session) =>
       filesOf(session).some((file) =>
         wanted.has(file.path) || wanted.has(splitOpenCodePath(file.path)?.dbPath ?? file.path)

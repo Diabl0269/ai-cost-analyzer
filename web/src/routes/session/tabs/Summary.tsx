@@ -1,4 +1,5 @@
 import { hasNoRecordedUsage } from '@/lib/usage';
+import { isNonClaudeProvider } from '@/lib/provider';
 import { useMemo, useState } from 'react';
 import { Link } from '@/lib/navigation';
 import { plural } from '@core/pricing/format.js';
@@ -153,7 +154,7 @@ export default function SummaryTab() {
     });
     rows.push({
       id: 'exact',
-      label: (summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') ? 'Session total (API-price estimate)' : 'Exact session total',
+      label: isNonClaudeProvider(summary.provider) ? 'Session total (API-price estimate)' : 'Exact session total',
       value: <Money usd={summary.cost.total} />,
       emphasis: 'total',
     });
@@ -172,14 +173,14 @@ export default function SummaryTab() {
       <section className={styles.receipts}>
         <div className="panel panel-pad">
           <Receipt
-            caption={(summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') ? 'Receipt — API-price estimate' : 'Receipt — exact'}
+            caption={isNonClaudeProvider(summary.provider) ? 'Receipt — API-price estimate' : 'Receipt — exact'}
             rows={[
               ...toReceiptRows(exactAmounts(summary.cost), (amount) => <Money usd={amount} />),
               { id: 'total', label: 'Session total', value: summary.unpriced && summary.cost.total === 0 ? <span className="muted">Unpriced</span> : <Money usd={summary.cost.total} display />, emphasis: 'total' },
             ]}
             footer={
               <span className={styles.footNote}>
-                {(summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') ? 'Recorded token counts priced at API list rates. This is not your subscription bill.' : 'Every line comes from the API usage numbers in the transcript — no estimation.'}
+                {isNonClaudeProvider(summary.provider) ? 'Recorded token counts priced at API list rates. This is not your subscription bill.' : 'Every line comes from the API usage numbers in the transcript — no estimation.'}
               </span>
             }
           />
@@ -196,7 +197,7 @@ export default function SummaryTab() {
               { id: 'total', label: 'Session total', value: summary.unpriced && summary.cost.total === 0 ? <span className="muted">Unpriced</span> : <Money usd={summary.cost.total} />, emphasis: 'total' },
             ]}
           />
-          {(summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') ? <p className={styles.tallyNote}>This provider does not report a Claude Code cost-state tally. API list-price estimates cannot be reconciled with a subscription bill.</p> : reported ? (
+          {isNonClaudeProvider(summary.provider) ? <p className={styles.tallyNote}>This provider does not report a Claude Code cost-state tally. API list-price estimates cannot be reconciled with a subscription bill.</p> : reported ? (
             <div className={styles.tally}>
               <Receipt
                 dense

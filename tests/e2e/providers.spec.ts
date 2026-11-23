@@ -66,3 +66,42 @@ test.describe('mixed providers', () => {
     await expectNoAxeViolations(page, 'mobile provider filter');
   });
 });
+
+const GEMINI_ID = 'gemini-e1111111-1111-4111-8111-111111111111';
+
+test.describe('mixed providers — Gemini', () => {
+  test.skip(!process.env.CCA_E2E_GEMINI_DIR, 'requires the opt-in synthetic Gemini fixture root');
+  test.beforeEach(async ({ request }) => {
+    await login(request);
+    await waitForIndexed(request);
+  });
+
+  test('filters Gemini sessions, renders model labels and transcripts, and preserves shared project folders', async ({ page, request }) => {
+    const claude = await (await request.get(`/api/sessions?${RANGE}&provider=claude`)).json();
+    const gemini = await (await request.get(`/api/sessions?${RANGE}&provider=gemini`)).json();
+    expect(gemini.sessions.map((session: { id: string }) => session.id)).toContain(GEMINI_ID);
+    const geminiSession = gemini.sessions.find((session: { id: string }) => session.id === GEMINI_ID);
+    expect(claude.sessions.some((session: { projectId: string }) => session.projectId === geminiSession.projectId)).toBe(true);
+
+    await page.setViewportSize({ width: 1800, height: 900 });
+    await openRoute(page, `/sessions?${RANGE}`);
+    const provider = page.getByRole('combobox', { name: 'Provider', exact: true });
+    await provider.selectOption('gemini');
+    await expect(page).toHaveURL(/provider=gemini/);
+    await expect(page.getByRole('link', { name: 'Gemini synthetic cache check', exact: true })).toBeVisible();
+    await expect(page.getByText('4-carbon-medium', { exact: true })).toBeVisible();
+    await expect(page.locator('[title="gemini-4-carbon-medium"]')).toBeVisible();
+
+    await page.getByRole('link', { name: 'Gemini synthetic cache check', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/sessions/${GEMINI_ID}\\?provider=gemini`));
+    await expect(page.getByText(/Gemini amounts are API-price estimates/).last()).toBeVisible();
+    await page.getByRole('tab', { name: 'Transcript', exact: true }).click();
+    await expect(page).toHaveURL(/transcript\?provider=gemini/);
+    await expect(page.getByText('Gemini synthetic result', { exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: /^Tools/ }).click();
+    await expect(page.getByRole('cell', { name: 'run_shell_command', exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: /^Hooks/ }).click();
+    await expect(page.getByText('Attribution unavailable for Gemini', { exact: true })).toBeVisible();
+    await expectNoAxeViolations(page, 'gemini session detail');
+  });
+});

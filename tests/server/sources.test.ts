@@ -77,6 +77,33 @@ describe('transcript source selection', () => {
     const roots = [join(home, 'sessions'), join(home, 'archived_sessions')];
     expect(validateRoots(roots, '/synthetic/cca', roots).ok).toBe(true);
   });
+  it('selects Gemini CLI and Antigravity roots safely, honors GEMINI_CLI_HOME and denies credential files', () => {
+    expect(resolveRoots({ geminiDirFlag: '/synthetic/.gemini', env: {} })).toEqual([
+      '/synthetic/.gemini/tmp',
+      '/synthetic/.gemini/antigravity/brain',
+      '/synthetic/.gemini/antigravity-cli/brain',
+    ]);
+    expect(resolveRoots({ geminiDirFlag: '/synthetic/antigravity-cli', env: {} })).toEqual(['/synthetic/antigravity-cli/brain']);
+    expect(resolveRoots({ geminiDirFlag: '/synthetic/gemini-fixture', env: {} })).toEqual(['/synthetic/gemini-fixture']);
+    expect(resolveRoots({ env: { CCA_GEMINI_DIR: '/synthetic/brain' } })).toEqual(['/synthetic/brain']);
+    expect(resolveRoots({ claudeDirFlag: '/synthetic/demo', geminiDirFlag: '', env: { CCA_GEMINI_DIR: '/synthetic/real' } })).toEqual(['/synthetic/demo']);
+    const gemHome = mkdtempSync(join(tmpdir(), 'cca-gemini-home-')); temporary.push(gemHome);
+    expect(resolveRoots({ env: { GEMINI_CLI_HOME: gemHome } })).not.toContain(join(gemHome, '.gemini', 'tmp'));
+    mkdirSync(join(gemHome, '.gemini', 'tmp'), { recursive: true });
+    mkdirSync(join(gemHome, '.gemini', 'antigravity-cli', 'brain'), { recursive: true });
+    const detected = resolveRoots({ env: { GEMINI_CLI_HOME: gemHome } });
+    expect(detected).toContain(join(gemHome, '.gemini', 'tmp'));
+    expect(detected).toContain(join(gemHome, '.gemini', 'antigravity-cli', 'brain'));
+    expect(parseFlags(['--gemini-dir', '/synthetic/gemini'], {}).geminiDir).toBe('/synthetic/gemini');
+    expect(() => parseFlags(['--gemini-dir'], {})).toThrow('invalid --gemini-dir');
+    expect(() => parseFlags(['--demo', '--gemini-dir', '/synthetic/gemini'], {})).toThrow('mutually exclusive');
+    const defaultGem = join(homedir(), '.gemini');
+    expect(validateRoots([defaultGem], '/synthetic/cca', [defaultGem]).violations[0]?.reason).toBe('sensitive_location');
+    expect(validateRoots([join(defaultGem, 'oauth_creds.json')], '/synthetic/cca').violations[0]?.reason).toBe('sensitive_location');
+    expect(validateRoots([join(defaultGem, 'antigravity-cli')], '/synthetic/cca', [join(defaultGem, 'antigravity-cli')]).violations[0]?.reason).toBe('sensitive_location');
+    const allowed = [join(defaultGem, 'tmp'), join(defaultGem, 'antigravity', 'brain'), join(defaultGem, 'antigravity-cli', 'brain')];
+    expect(validateRoots(allowed, '/synthetic/cca', allowed).ok).toBe(true);
+  });
 });
 
 describe('saved configuration upgrades', () => {

@@ -156,7 +156,7 @@ export default function AgentsTab() {
     },
   ];
 
-  if ((detail.summary.provider === 'codex' || detail.summary.provider === 'copilot' || detail.summary.provider === 'opencode') && rows.length === 0) {
+  if ((detail.summary.provider === 'codex' || detail.summary.provider === 'copilot' || detail.summary.provider === 'opencode' || detail.summary.provider === 'gemini') && rows.length === 0) {
     return <EmptyState title="No linked agents recorded" description="No linked agent transcript was recorded for this rollout. Missing records do not mean no delegation occurred." />;
   }
 

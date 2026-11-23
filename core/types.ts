@@ -6,12 +6,12 @@
 
 // ───────────────────────────── Discovery ─────────────────────────────
 
-export type Provider = 'claude' | 'codex' | 'copilot' | 'opencode';
+export type Provider = 'claude' | 'codex' | 'copilot' | 'opencode' | 'gemini';
 
 export type TranscriptKind = 'main' | 'subagent' | 'workflow-agent';
 
 export interface DiscoveredFile {
-  provider?: 'claude' | 'codex' | 'copilot' | 'opencode';
+  provider?: Provider;
   path: string;
   size: number;
   mtimeMs: number;
@@ -44,7 +44,7 @@ export interface DiscoveredWorkflowRun {
 }
 
 export interface DiscoveredSession {
-  provider?: 'claude' | 'codex' | 'copilot' | 'opencode';
+  provider?: Provider;
   projectDirName: string;
   projectDirPath: string;
   sessionId: string;
@@ -510,7 +510,7 @@ export interface RangeQuery {
 /** One session the indexer could not parse or write. Paths are home-relative (`~/…`). */
 export interface IndexFailure {
   sessionId: string;
-  provider: 'claude' | 'codex' | 'copilot' | 'opencode';
+  provider: Provider;
   paths: string[];
   phase: 'parse' | 'write';
   /** `Name: message`, capped at 300 characters. */

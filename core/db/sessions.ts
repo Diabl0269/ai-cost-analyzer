@@ -229,7 +229,7 @@ export function toSessionSummary(
 ): SessionSummary {
   const summary: SessionSummary = {
     id: str(row, 'id'),
-    provider: (['copilot', 'codex', 'opencode'] as const).find((name) => name === str(row, 'provider')) ?? 'claude',
+    provider: (['copilot', 'codex', 'opencode', 'gemini'] as const).find((name) => name === str(row, 'provider')) ?? 'claude',
     ...(num(row, 'usageIncomplete') ? { usageIncomplete: true } : {}),
     projectId: str(row, 'projectId'),
     projectPath,

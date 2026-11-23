@@ -105,6 +105,10 @@ describe('formatModelLabel', () => {
     expect(formatModelLabel('claude-opus-5[1m]')).toBe('Opus 5 (1M)');
     expect(formatModelLabel('<synthetic>')).toBe('Synthetic');
     expect(formatModelLabel('gpt-9')).toBe('gpt-9');
+    expect(formatModelLabel('gemini-4-carbon-medium')).toBe('Gemini 4 Carbon (Medium)');
+    expect(formatModelLabel('gemini-4-neon-xhigh')).toBe('Gemini 4 Neon (XHigh)');
+    expect(formatModelLabel('gemini-2.5-flash-lite')).toBe('Gemini 2.5 Flash-Lite');
+    expect(formatModelLabel('models/gemini-3.8-flash-high')).toBe('Gemini 3.8 Flash (High)');
   });
 });
 

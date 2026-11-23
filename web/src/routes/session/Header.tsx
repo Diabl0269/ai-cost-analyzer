@@ -1,4 +1,4 @@
-import { providerLabel } from '@/lib/provider';
+import { isNonClaudeProvider, providerLabel } from '@/lib/provider';
 import { Link } from '@/lib/navigation';
 import type { SessionDetail } from '@core/types';
 import { Button } from '@/components/Button';
@@ -80,7 +80,7 @@ export function SessionHeader({ detail, whatIf }: SessionHeaderProps) {
               <Icon name="sessions" size={12} /> {shortProjectPath(summary.projectPath, 3)}
             </Link>
             <span className={styles.id} title={summary.id}>
-              {(summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') ? summary.id.slice(-8) : summary.id.slice(0, 8)}
+              {isNonClaudeProvider(summary.provider) ? summary.id.slice(-8) : summary.id.slice(0, 8)}
             </span>
           </p>
         </div>
@@ -102,7 +102,7 @@ export function SessionHeader({ detail, whatIf }: SessionHeaderProps) {
         </div>
       </div>
 
-      {(summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') ? <p className="ui-sm muted">{providerLabel(summary.provider)} amounts are API-price estimates, not your subscription bill. Claude Code hook, skill and workflow attribution is unavailable in these transcripts.</p> : null}
+      {isNonClaudeProvider(summary.provider) ? <p className="ui-sm muted">{providerLabel(summary.provider)} amounts are API-price estimates, not your subscription bill. Claude Code hook, skill and workflow attribution is unavailable in these transcripts.</p> : null}
       {summary.usageIncomplete ? <p className="ui-sm muted" role="note">Usage incomplete — totals cover recorded tokens only.</p> : null}
       {summary.provider === 'copilot' ? <p className="ui-sm muted" role="note">Saved Copilot usage can contain session totals rather than individual API calls. Usage rows may be accounting buckets. Only individually recorded API calls are counted as requests; context tiers and per-tool attribution cannot be reconstructed from session totals. Cache normalization assumes input includes cache tokens; upstream billing semantics remain underspecified. VS Code chats without recorded usage show unavailable costs.</p> : null}
       <dl className={styles.facts}>
@@ -130,7 +130,7 @@ export function SessionHeader({ detail, whatIf }: SessionHeaderProps) {
             <dd className={styles.factValue}>{fact.value}</dd>
           </div>
         ))}
-        {summary.provider !== 'codex' && summary.provider !== 'copilot' && summary.provider !== 'opencode' ? <div className={styles.fact}>
+        {!isNonClaudeProvider(summary.provider) ? <div className={styles.fact}>
           <dt>Claude Code’s tally</dt>
           <dd>
             <ReportedBadge status={summary.reportedStatus} comparison={detail.facts.reportedComparison} />

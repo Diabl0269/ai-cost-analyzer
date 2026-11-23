@@ -18,7 +18,7 @@ const idle = usage(0, 'recorded', 0);
 const period = (claude: ReturnType<typeof usage>, codex: ReturnType<typeof usage>, total: ReturnType<typeof usage>) => ({
   range: { from: '2026-09-07', to: '2026-09-07' },
   total,
-  byProvider: { claude, codex, copilot: idle, opencode: idle },
+  byProvider: { claude, codex, copilot: idle, opencode: idle, gemini: idle },
 });
 const body = {
   generatedAt: '2026-09-07T12:00:00.000Z',

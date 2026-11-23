@@ -61,7 +61,7 @@ export interface InsightSessionRow {
   idleGapExpiries: number;
   idleGapCost: number;
   /** source tool; absent means unknown and gets generic advice */
-  provider?: 'claude' | 'codex' | 'copilot' | 'opencode';
+  provider?: 'claude' | 'codex' | 'copilot' | 'opencode' | 'gemini';
 }
 
 /** One (session, model) bucket, split by whether the spend happened in a subagent. */

@@ -7,7 +7,7 @@ import type { ModelPrice, PricingConfig, TokenPrices } from '../types.js';
 
 export const OPENAI_PRICING_SOURCE = 'https://developers.openai.com/api/docs/pricing (2026-11-05)';
 export const GITHUB_COPILOT_PRICING_SOURCE = 'https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing#microsoft (2026-11-19)';
-export const GOOGLE_PRICING_SOURCE = 'https://aistudio.google.com/docs/whats-new-gemini-4-neon (2026-11-23)';
+export const GOOGLE_PRICING_SOURCE = 'https://ai.google.dev/gemini-api/docs/pricing; https://aistudio.google.com/docs/whats-new-gemini-4-neon (2026-11-23)';
 export const PRICING_SOURCE = `platform.claude.com/docs/en/about-claude/pricing (2026-11-19); ${OPENAI_PRICING_SOURCE}; GitHub Copilot models: ${GITHUB_COPILOT_PRICING_SOURCE}; Google models: ${GOOGLE_PRICING_SOURCE}`;
 
 const CPT_MODERN = 3.1;
@@ -68,6 +68,69 @@ export function defaultOpenAIModels(): ModelPrice[] {
 const FAST_OPUS_55: TokenPrices = prices(8, 40, 10, 16, 0.4);
 const FAST_FABLE_52: TokenPrices = prices(16, 80, 20, 32, 0.4);
 
+/** Published Google Gemini Developer API / AI Studio paid-tier rates.
+ * Exact IDs prevent preview/router aliases (such as `gemini-pro-orchestrator`) inheriting a guessed price;
+ * `resolve.ts` maps Antigravity thinking-tier suffixes (`-low`, `-medium`, `-high`, `-xhigh`) to the base model.
+ * Output prices include thinking tokens. Implicit context caching bills cache reads at the published discount
+ * with no per-token write surcharge; explicit cache hourly storage is outside per-request token billing.
+ */
+export function defaultGoogleModels(): ModelPrice[] {
+  const gemini = (
+    key: string,
+    label: string,
+    input: number,
+    output: number,
+    cacheRead: number,
+    extra: Partial<ModelPrice> = {},
+  ): ModelPrice => ({
+    key,
+    label,
+    match: [key],
+    exact: true,
+    ...prices(input, output, 0, 0, cacheRead),
+    supportsUsGeo: false,
+    charsPerToken: CPT_LEGACY,
+    family: 'other',
+    ...extra,
+  });
+  const proLongContext = { threshold: 200_000, inputMultiplier: 2, outputMultiplier: 1.5 };
+  return [
+    // Introductory rate through 2026-11-30 ($4 / $20 / $0.20 starting 2026-12-01).
+    gemini('gemini-4-carbon', 'Gemini 4 Carbon', 2, 10, 0.1),
+    // Introductory rate through 2026-11-30 ($4 / $20 / $0.20 starting 2026-12-01).
+    gemini('gemini-4-argon', 'Gemini 4 Argon', 2, 10, 0.1),
+    gemini('gemini-4-neon', 'Gemini 4 Neon', 3, 15, 0.15),
+    gemini('gemini-4-hydrogen', 'Gemini 4 Hydrogen', 1.5, 7.5, 0.075),
+    // Promotional rate through 2026-12-31 ($1.50 / $7.50 / $0.15 starting 2027-01-01).
+    gemini('gemini-3.8-flash', 'Gemini 3.8 Flash', 0.75, 3.75, 0.075),
+    gemini('gemini-3.7-flash', 'Gemini 3.7 Flash', 0.75, 3.75, 0.075),
+    // Promotional rate through 2026-12-31 ($1.50 / $7.50 / $0.15 starting 2027-01-01).
+    gemini('gemini-3.6-flash', 'Gemini 3.6 Flash', 0.75, 3.75, 0.075),
+    gemini('gemini-3.5-flash', 'Gemini 3.5 Flash', 1.5, 9, 0.15),
+    gemini('gemini-3.5-flash-lite', 'Gemini 3.5 Flash-Lite', 0.3, 2.5, 0.03),
+    gemini('gemini-3.1-pro', 'Gemini 3.1 Pro', 2, 12, 0.2, {
+      match: ['gemini-3.1-pro', 'gemini-3.1-pro-preview'],
+      longContext: proLongContext,
+    }),
+    gemini('gemini-3.1-flash-lite', 'Gemini 3.1 Flash-Lite', 0.25, 1.5, 0.025, {
+      match: ['gemini-3.1-flash-lite', 'gemini-3.1-flash-lite-preview'],
+    }),
+    gemini('gemini-3-pro', 'Gemini 3 Pro', 2, 12, 0.2, {
+      match: ['gemini-3-pro', 'gemini-3-pro-preview'],
+      longContext: proLongContext,
+    }),
+    gemini('gemini-3-flash', 'Gemini 3 Flash', 0.5, 3, 0.05, {
+      match: ['gemini-3-flash', 'gemini-3-flash-preview'],
+    }),
+    gemini('gemini-2.5-pro', 'Gemini 2.5 Pro', 1.25, 10, 0.125, {
+      longContext: proLongContext,
+    }),
+    gemini('gemini-2.5-flash', 'Gemini 2.5 Flash', 0.3, 2.5, 0.03),
+    gemini('gemini-2.5-flash-lite', 'Gemini 2.5 Flash-Lite', 0.1, 0.4, 0.01),
+    gemini('gemini-2.0-flash', 'Gemini 2.0 Flash', 0.1, 0.4, 0.01, { retired: true }),
+  ];
+}
+
 /** Models published after the first release of the table. Specific ids win over the older
  * `claude-opus-5` / `claude-sonnet-5` / `claude-fable-5` prefixes, which would misprice them. */
 export function addedDefaultModels(): ModelPrice[] {
@@ -84,16 +147,7 @@ export function addedDefaultModels(): ModelPrice[] {
     claude('haiku-5.5', 'Claude Haiku 5.5', 'haiku', prices(0.1, 0.5, 0.125, 0.2, 0.01), {
       longContext: { threshold: 100_000, inputMultiplier: 5, outputMultiplier: 5 },
     }),
-    {
-      key: 'gemini-4-neon',
-      label: 'Gemini 4 Neon',
-      match: ['gemini-4-neon'],
-      exact: true,
-      ...prices(3, 15, 0, 0, 0.15),
-      supportsUsGeo: false,
-      charsPerToken: CPT_LEGACY,
-      family: 'other',
-    },
+    ...defaultGoogleModels(),
     {
       key: 'mai-code-1.1-flash',
       label: 'MAI-Code-1.1-Flash',

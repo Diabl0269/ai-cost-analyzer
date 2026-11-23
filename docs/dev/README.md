@@ -23,5 +23,5 @@ module.
 - **`demo-video.md`** — `scripts/demo-video.ts`, `scripts/demo-video/*`: the narrated screen tour
   (`docs/demo/demo.mp4`/`.webm`/`.gif`), how its timing and voice selection work, and how to record
   a new one.
-- **`copilot.md`** / **`opencode.md`** — the Copilot and OpenCode adapters: sources, format, usage semantics and limits.
+- **`copilot.md`** / **`opencode.md`** / **`gemini.md`** — the Copilot, OpenCode, and Gemini CLI / Google Antigravity adapters: sources, format, usage semantics and limits.
 - `executive-summary.md` — how the executive one-pager (`docs/executive-summary.html`) was produced, every figure with its API source, and how to refresh it.

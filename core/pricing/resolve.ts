@@ -83,9 +83,13 @@ export function findModelPrice(id: string, pricing: PricingConfig): ModelPrice |
       if (norm === literal.toLowerCase()) return model;
     }
   }
-  // A gateway/provider prefix (`copilot/`, `anthropic/`) and dotted Claude versions identify the same underlying model.
-  // Resolve literal/custom entries first so existing user pricing always wins.
-  const canonical = norm.replace(/^[a-z0-9._-]+\//, '').replace(/^(claude-(?:opus|sonnet|haiku)-\d+)\.(\d+)(?=-|$)/, '$1-$2');
+  // Gateway/API prefixes (`copilot/`, `anthropic/`, `google/`, `models/`), dotted Claude versions,
+  // and Antigravity Gemini thinking-tier suffixes (`-low`, `-medium`, `-high`, `-xhigh`) identify
+  // the same underlying model. Resolve literal/custom entries first so user pricing always wins.
+  const canonical = norm
+    .replace(/^[a-z0-9._-]+\//, '')
+    .replace(/^(claude-(?:opus|sonnet|haiku)-\d+)\.(\d+)(?=-|$)/, '$1-$2')
+    .replace(/^(gemini-[a-z0-9.-]+)-(?:minimal|low|medium|high|xhigh)$/, '$1');
   return canonical !== norm ? findModelPrice(canonical, pricing) : null;
 }
 
@@ -127,10 +131,10 @@ function priceFor(model: ModelPrice, flags: PriceFlags, pricing: PricingConfig, 
   let factor = 1 / PER_MTOK;
   if (usGeo) factor *= pricing.usGeoMultiplier;
   if (batch) factor *= pricing.batchMultiplier;
-  // OpenAI retention is not the shared Claude 5m/1h TTL. Preserve the known cost floor
-  // when a rollout reports writes without a configured tariff, rather than implying free writes.
-  const openAI = model.match.some((id) => /^(?:gpt-|o[1-9](?:-|$))/i.test(id));
-  const unpricedWrites = openAI && (flags.cacheWriteTokens ?? 0) > 0
+  // OpenAI retention and Google explicit context-cache storage are not the shared Claude 5m/1h TTL.
+  // Preserve the known cost floor when a rollout reports writes without a configured tariff, rather than implying free writes.
+  const nonClaudeWrite = model.match.some((id) => /^(?:gpt-|o[1-9](?:-|$)|gemini-)/i.test(id));
+  const unpricedWrites = nonClaudeWrite && (flags.cacheWriteTokens ?? 0) > 0
     && base.cacheWrite5m === 0 && base.cacheWrite1h === 0;
   const perToken = scale(base, factor);
   const longContext = model.longContext;

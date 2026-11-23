@@ -6,6 +6,7 @@ const fixtures = fileURLToPath(new URL('./tests/fixtures/projects', import.meta.
 const codex = process.env.CCA_E2E_CODEX_DIR;
 const copilot = process.env.CCA_E2E_COPILOT_DIR;
 const opencode = process.env.CCA_E2E_OPENCODE_DIR;
+const gemini = process.env.CCA_E2E_GEMINI_DIR;
 const home = process.env.CCA_E2E_HOME ?? fileURLToPath(new URL('./.cca-e2e-home', import.meta.url));
 
 export default defineConfig({
@@ -20,7 +21,7 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 },
   },
   webServer: {
-    command: `node dist/server/cli.js --port ${port} --no-open --claude-dir "${fixtures}"${codex ? ` --codex-dir "${codex}"` : ''}${copilot ? ` --copilot-dir "${copilot}"` : ''}${opencode ? ` --opencode-dir "${opencode}"` : ''}`,
+    command: `node dist/server/cli.js --port ${port} --no-open --claude-dir "${fixtures}"${codex ? ` --codex-dir "${codex}"` : ''}${copilot ? ` --copilot-dir "${copilot}"` : ''}${opencode ? ` --opencode-dir "${opencode}"` : ''}${gemini ? ` --gemini-dir "${gemini}"` : ''}`,
     url: `http://127.0.0.1:${port}/api/status`,
     reuseExistingServer: false,
     timeout: 120_000,

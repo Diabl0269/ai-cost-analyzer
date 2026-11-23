@@ -260,6 +260,7 @@ export class FakeStore implements Store {
         codex: usage(null, 'unavailable'),
         copilot: usage(0, 'recorded'),
         opencode: usage(0, 'recorded'),
+        gemini: usage(0, 'recorded'),
       },
     });
     return Promise.resolve({

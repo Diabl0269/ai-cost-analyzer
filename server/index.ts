@@ -26,6 +26,7 @@ export interface StartServerOptions {
   codexDirFlag?: string;
   copilotDirFlag?: string;
   opencodeDirFlag?: string;
+  geminiDirFlag?: string;
 }
 
 export interface RunningServer {
@@ -38,7 +39,7 @@ export async function startServer(opts: StartServerOptions): Promise<RunningServ
   ensureHomeDir(paths.home);
 
   const config = ConfigStore.load(paths.configPath);
-  const roots = resolveRoots({ settingsRoots: config.get().settings.roots, claudeDirFlag: opts.claudeDirFlag, codexDirFlag: opts.codexDirFlag, copilotDirFlag: opts.copilotDirFlag, opencodeDirFlag: opts.opencodeDirFlag });
+  const roots = resolveRoots({ settingsRoots: config.get().settings.roots, claudeDirFlag: opts.claudeDirFlag, codexDirFlag: opts.codexDirFlag, copilotDirFlag: opts.copilotDirFlag, opencodeDirFlag: opts.opencodeDirFlag, geminiDirFlag: opts.geminiDirFlag });
 
   const store = createStore(paths.dbPath);
   const sse = createSseHub();

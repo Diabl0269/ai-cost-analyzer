@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for looking at AI Cost Analyzer. This is a local, single-user web app that reads the local
-history of AI coding assistants (Claude Code, Codex, GitHub Copilot and OpenCode) and prices every
+history of AI coding assistants (Claude Code, Codex, GitHub Copilot, OpenCode and Google Gemini / Antigravity) and prices every
 request, tool call and subagent at API list prices; Claude Code transcripts also get workflow, hook
 and harness-injection attribution. The full design is `SPEC.md` (binding); the cost
 model is explained in `docs/METHODOLOGY.md`; per-module notes live in `docs/dev/*.md`.
@@ -49,7 +49,7 @@ Ports and homes are all overridable, so more than one checkout can run at once w
 core/                 pure TypeScript, no HTTP, no React — types.ts is the shared contract
   types.ts            domain + API types. Append-only; never rename or repurpose a field.
   discover.ts jsonl.ts parse/    JSONL → ParsedSession        (parser module)
-  codex/ copilot/ opencode/      per-tool adapters into the same ParsedSession contract
+  codex/ copilot/ opencode/ gemini/  per-tool adapters into the same ParsedSession contract
   pricing/ cost/ db/             pricing table, attribution, SQLite index, queries  (cost/index module)
   demo/                          seeded synthetic dataset generator (pure; no real data)  (docs/dev/demo.md)
 server/               Hono app: routes, auth, indexing worker, SSE, fs watcher, CLI
@@ -134,7 +134,7 @@ mismatch drops and recreates every table on next open — there are no migration
 ## Multiple AI tools
 
 `core/codex/` adapts Codex rollout files into the shared parser contract. Discovery records a
-provider (`claude`, `codex`, `copilot` or `opencode`), the index stores it on sessions, and `RangeQuery.provider` scopes
+provider (`claude`, `codex`, `copilot`, `opencode` or `gemini`), the index stores it on sessions, and `RangeQuery.provider` scopes
 all list/search/analytics/export queries. Missing provider means all providers. Shared projects merge by
 exact reported working directory, preserving Claude project IDs for existing links.
 
@@ -204,3 +204,11 @@ sequence number, as for VS Code journals.
   Node 22 (Homebrew Node 23 lacks SQLite FTS5).
 - Pricing additions land in `addedDefaultModels()` (`core/pricing/defaults.ts`); `withDefaultModels`
   merges them into saved configs and upgrades untouched GPT-6 rows with the 1.25x cache-write rate.
+
+## Gemini CLI & Antigravity sources
+
+`core/gemini/` reads Gemini CLI chat logs (`~/.gemini/tmp/<project>/chats/session-*.jsonl|json`) and
+Google Antigravity step logs (`~/.gemini/antigravity*/brain/<id>/.system_generated/logs/transcript*.jsonl`,
+plus read-only summary metadata in `conversation_summaries.db`). See `docs/dev/gemini.md`.
+`CCA_GEMINI_DIR`, `--gemini-dir` and `GEMINI_CLI_HOME` select Gemini/Antigravity roots;
+`CCA_E2E_GEMINI_DIR` enables synthetic browser coverage.

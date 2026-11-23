@@ -1,5 +1,5 @@
 import { hasNoRecordedUsage } from '@/lib/usage';
-import { providerLabel } from '@/lib/provider';
+import { isNonClaudeProvider, providerLabel } from '@/lib/provider';
 /**
  * Receipt construction, shared by the Summary tab and the "copy as Markdown" action so the
  * clipboard and the screen can never disagree.
@@ -31,7 +31,7 @@ export function exactAmounts(cost: CostBreakdown): LabelledAmount[] {
 /** Main transcript vs delegated work. Child costs are never folded into the parent. */
 export function delegationAmounts(detail: SessionDetail): LabelledAmount[] {
   const { summary } = detail;
-  if ((summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') && summary.agentCount === 0) return [{ id: 'main', label: 'Recorded transcript (no linked agent transcript)', amount: summary.costMain }];
+  if (isNonClaudeProvider(summary.provider) && summary.agentCount === 0) return [{ id: 'main', label: 'Recorded transcript (no linked agent transcript)', amount: summary.costMain }];
   return [
     { id: 'main', label: 'This transcript', amount: summary.costMain },
     { id: 'agents', label: `Subagents (${formatCount(summary.agentCount)})`, amount: summary.costAgents },
@@ -169,7 +169,7 @@ export function markdownReceipt(detail: SessionDetail): string {
   lines.push(`- Session: \`${summary.id}\``);
   lines.push(`- Project: ${summary.projectPath}`);
   if (summary.provider === 'copilot') lines.push('- Saved usage may be session aggregates. Request rows can be accounting buckets, not individual calls; context tiers and per-tool attribution are unavailable.');
-  if ((summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode')) lines.push(`- Provider: ${providerLabel(summary.provider)}. Amounts are API-price estimates, not your subscription bill. Claude Code hook, skill and workflow attribution is unavailable.`);
+  if (isNonClaudeProvider(summary.provider)) lines.push(`- Provider: ${providerLabel(summary.provider)}. Amounts are API-price estimates, not your subscription bill. Claude Code hook, skill and workflow attribution is unavailable.`);
   if (summary.usageIncomplete) lines.push('- Usage incomplete — totals cover recorded tokens only.');
   lines.push(`- Started: ${formatDate(summary.startedAt, 'datetime')}`);
   lines.push(`- Duration: ${formatDuration(summary.durationMs)} (active ${formatDuration(summary.activeMs)})`);
@@ -179,7 +179,7 @@ export function markdownReceipt(detail: SessionDetail): string {
     lines.push('Cost unavailable: this transcript has no recorded token usage. A zero-dollar total would be misleading.');
     return lines.join('\n');
   }
-  lines.push((summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') ? '## Receipt (API-price estimate)' : '## Receipt (exact)', '');
+  lines.push(isNonClaudeProvider(summary.provider) ? '## Receipt (API-price estimate)' : '## Receipt (exact)', '');
   lines.push('| Item | USD |', '| --- | ---: |');
   for (const row of exactAmounts(summary.cost)) lines.push(`| ${row.label} | ${formatMoney(row.amount)} |`);
   lines.push(`| **Total** | **${formatMoney(summary.cost.total)}** |`);
@@ -187,7 +187,7 @@ export function markdownReceipt(detail: SessionDetail): string {
   lines.push('| Where | USD |', '| --- | ---: |');
   for (const row of delegationAmounts(detail)) lines.push(`| ${row.label} | ${formatMoney(row.amount)} |`);
   lines.push('');
-  lines.push((summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') ? '## By model (API-price estimate)' : '## By model (exact)', '');
+  lines.push(isNonClaudeProvider(summary.provider) ? '## By model (API-price estimate)' : '## By model (exact)', '');
   lines.push('| Model | Requests | Input | Output | Cache write | Cache read | USD |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: |');
   for (const row of detail.byModel) {
     lines.push(
@@ -209,6 +209,6 @@ export function markdownReceipt(detail: SessionDetail): string {
     lines.push(`Claude Code’s own tally for this session: ${formatMoney(reported.totalCostUSD)}.`);
   }
   lines.push('');
-  lines.push((summary.provider === 'codex' || summary.provider === 'copilot' || summary.provider === 'opencode') ? '_Amounts price recorded tokens at API list rates; they do not represent a subscription bill._' : `_Request costs are exact; attribution lines are estimated (see Methodology). ${ESTIMATE_DETAIL}_`);
+  lines.push(isNonClaudeProvider(summary.provider) ? '_Amounts price recorded tokens at API list rates; they do not represent a subscription bill._' : `_Request costs are exact; attribution lines are estimated (see Methodology). ${ESTIMATE_DETAIL}_`);
   return lines.join('\n');
 }

@@ -204,7 +204,7 @@ export default function HooksAnalyticsPage() {
     ];
   }, [totals, currency, hookRows, harnessRows, overhead]);
 
-  if ((range.provider === 'codex' || range.provider === 'copilot' || range.provider === 'opencode')) {
+  if ((range.provider === 'codex' || range.provider === 'copilot' || range.provider === 'opencode' || range.provider === 'gemini')) {
     return <div className="stack"><PageHeader title="Hooks & harness" /><EmptyState title={`Hook attribution unavailable for ${providerLabel(range.provider)}`} description="These transcripts do not record Claude Code hook or harness attribution. Missing records do not mean zero overhead." /></div>;
   }
 

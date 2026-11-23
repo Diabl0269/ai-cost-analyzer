@@ -25,6 +25,7 @@ import { existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { expandHome } from './paths.js';
+import { defaultGeminiDir, geminiTranscriptRoots } from './gemini-paths.js';
 import { defaultOpenCodeDir } from './opencode-paths.js';
 
 export interface RootsPolicyViolation {
@@ -70,6 +71,8 @@ function sensitivePaths(ccaHome: string): string[] {
     join(home, '.claude'),
     join(home, '.codex'),
     join(home, '.copilot'),
+    join(home, '.gemini'),
+    defaultGeminiDir(process.env, home),
     defaultOpenCodeDir(process.env, home),
     ...(process.env.COPILOT_HOME ? [resolve(expandHome(process.env.COPILOT_HOME))] : []),
     ...(process.env.CODEX_HOME ? [resolve(expandHome(process.env.CODEX_HOME))] : []),
@@ -86,6 +89,8 @@ function isExplicitlyAllowed(resolvedRoot: string): boolean {
     join(resolve(expandHome(process.env.COPILOT_HOME ?? '~/.copilot')), 'session-state'),
     join(homedir(), '.codex', 'sessions'), join(homedir(), '.codex', 'archived_sessions'),
     join(codexHome, 'sessions'), join(codexHome, 'archived_sessions'),
+    ...geminiTranscriptRoots(join(homedir(), '.gemini')),
+    ...geminiTranscriptRoots(defaultGeminiDir()),
     // Holds auth.json next to the database; discovery opens only opencode.db.
     defaultOpenCodeDir()];
   return allowed.some((root) => isAncestorOrEqual(resolve(root), resolvedRoot));

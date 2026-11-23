@@ -1,5 +1,5 @@
 import { hasNoRecordedUsage } from '@/lib/usage';
-import { providerLabel } from '@/lib/provider';
+import { isNonClaudeProvider, providerLabel } from '@/lib/provider';
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from '@/lib/navigation';
 import { plural } from '@core/pricing/format.js';
@@ -96,7 +96,7 @@ export default function SessionsPage() {
     if (viewportWidth === 'narrow' || tableWidth === 0) return viewportWidth;
     for (const candidate of ['full', 'rich', 'mid', 'narrow'] as const) {
       const occupied = COLUMN_SETS[candidate]
-        .filter((id) => id !== 'title' && !((range.provider === 'codex' || range.provider === 'copilot' || range.provider === 'opencode') && id === 'reported'))
+        .filter((id) => id !== 'title' && !(isNonClaudeProvider(range.provider) && id === 'reported'))
         .reduce((sum, id) => sum + (COLUMN_PX[id] ?? 0), 0);
       if (occupied + MIN_TITLE_PX + 6 <= tableWidth) return candidate;
     }
@@ -108,7 +108,7 @@ export default function SessionsPage() {
   const titlePx = useMemo(() => {
     if (tableWidth <= 0) return null;
     const others = COLUMN_SETS[ledgerWidth]
-      .filter((id) => id !== 'title' && !((range.provider === 'codex' || range.provider === 'copilot' || range.provider === 'opencode') && id === 'reported'))
+      .filter((id) => id !== 'title' && !(isNonClaudeProvider(range.provider) && id === 'reported'))
       .reduce((sum, id) => sum + (COLUMN_PX[id] ?? 0), 0);
     // A couple of pixels for the table's own border.
     return Math.max(MIN_TITLE_PX, tableWidth - others - 6);
@@ -300,10 +300,10 @@ export default function SessionsPage() {
       width: `${COLUMN_PX.models}px`,
       cell: (session) => (
         <span className={styles.models}>
-          {(session.provider === 'codex' || session.provider === 'copilot' || session.provider === 'opencode') ? (
+          {isNonClaudeProvider(session.provider) ? (
             <>
               <span className={styles.codexModel} title={session.models[0]}>
-                {/auto.?review/i.test(session.models[0] ?? '') ? 'Auto-review' : (session.models[0] ?? 'Unknown').replace(/^gpt-/i, '')}
+                {/auto.?review/i.test(session.models[0] ?? '') ? 'Auto-review' : (session.models[0] ?? 'Unknown').replace(/^(?:gpt-|gemini-)/i, '')}
               </span>
               {session.models.length > 1 ? <span className={styles.more} title={session.models.slice(1).join(', ')}>+{session.models.length - 1}</span> : null}
             </>
@@ -353,7 +353,7 @@ export default function SessionsPage() {
       width: `${COLUMN_PX.agents}px`,
       headerTitle: 'Subagents this session launched, and workflow runs',
       cell: (session) =>
-        (session.provider === 'codex' || session.provider === 'copilot' || session.provider === 'opencode') && session.agentCount === 0 ? <span title="No linked agent transcript recorded for this session">{EM_DASH}</span> : session.agentCount > 0 || session.workflowRunCount > 0 ? (
+        isNonClaudeProvider(session.provider) && session.agentCount === 0 ? <span title="No linked agent transcript recorded for this session">{EM_DASH}</span> : session.agentCount > 0 || session.workflowRunCount > 0 ? (
           <span
             title={`${plural(session.agentCount, 'subagent')} and ${plural(session.workflowRunCount, 'workflow run')}`}
           >
@@ -368,16 +368,16 @@ export default function SessionsPage() {
       id: 'reported',
       header: <ReportedHeader />,
       width: `${COLUMN_PX.reported}px`,
-      cell: (session) => (session.provider === 'codex' || session.provider === 'copilot' || session.provider === 'opencode') ? <span title="This provider has no Claude Code cost-state tally">{EM_DASH}</span> : <ReportedBadge status={session.reportedStatus} />,
+      cell: (session) => isNonClaudeProvider(session.provider) ? <span title="This provider has no Claude Code cost-state tally">{EM_DASH}</span> : <ReportedBadge status={session.reportedStatus} />,
     };
 
     // Widest set that fits, never at the cost of the two columns that carry the answer.
     if (ledgerWidth === 'narrow') return [pinColumn, titleColumn, costColumn];
     if (ledgerWidth === 'mid') return [pinColumn, titleColumn, started, duration, requests, costColumn];
     if (ledgerWidth === 'rich') {
-      return [pinColumn, titleColumn, started, duration, models, prompts, requests, costColumn, ...((range.provider === 'codex' || range.provider === 'copilot' || range.provider === 'opencode') ? [] : [reported])];
+      return [pinColumn, titleColumn, started, duration, models, prompts, requests, costColumn, ...(isNonClaudeProvider(range.provider) ? [] : [reported])];
     }
-    return [pinColumn, titleColumn, started, duration, models, prompts, requests, tools, agents, costColumn, ...((range.provider === 'codex' || range.provider === 'copilot' || range.provider === 'opencode') ? [] : [reported])];
+    return [pinColumn, titleColumn, started, duration, models, prompts, requests, tools, agents, costColumn, ...(isNonClaudeProvider(range.provider) ? [] : [reported])];
   }, [pin, narrow, ledgerWidth, titlePx, range.provider]);
 
   const sort: LedgerSort = { columnId: list.filters.sort, direction: list.filters.order };

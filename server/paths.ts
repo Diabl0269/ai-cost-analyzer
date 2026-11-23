@@ -4,6 +4,7 @@
  * the DB and config may contain (derived) cost data for the user's private transcripts.
  */
 import { copilotRoots, copilotEditorRoots } from './copilot-paths.js';
+import { geminiDefaultRoots, selectedGeminiRoots } from './gemini-paths.js';
 import { openCodeDefaultRoots, selectedOpenCodeRoots } from './opencode-paths.js';
 import { existsSync, mkdirSync, chmodSync, statSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -81,11 +82,13 @@ export interface ResolveRootsOptions {
   copilotDirFlag?: string;
   /** OpenCode data directory (containing opencode.db) or the database file. */
   opencodeDirFlag?: string;
+  /** Gemini home (`~/.gemini`), Gemini CLI `tmp`/`chats`, or Antigravity `brain` directory. */
+  geminiDirFlag?: string;
   env?: NodeJS.ProcessEnv;
 }
 
 /**
- * Explicit Claude/Codex/Copilot/OpenCode selections override configured roots and may be combined.
+ * Explicit Claude/Codex/Copilot/OpenCode/Gemini selections override configured roots and may be combined.
  * Without overrides, the legacy default adds Codex session roots honoring CODEX_HOME.
  * Custom settings roots remain unchanged. Results are absolute and `~`-expanded.
  */
@@ -95,13 +98,15 @@ export function resolveRoots(opts: ResolveRootsOptions = {}): string[] {
   const codex = opts.codexDirFlag ?? env.CCA_CODEX_DIR;
   const copilot = opts.copilotDirFlag ?? env.CCA_COPILOT_DIR;
   const opencode = opts.opencodeDirFlag ?? env.CCA_OPENCODE_DIR;
+  const gemini = opts.geminiDirFlag ?? env.CCA_GEMINI_DIR;
   // An explicit source selection stays isolated (including fixtures and demo runs).
-  if (claude || codex || copilot || opencode) {
+  if (claude || codex || copilot || opencode || gemini) {
     return [...new Set([
       ...(claude ? [resolve(expandHome(claude))] : []),
       ...(codex ? codexRoots(codex) : []),
       ...(copilot ? selectedCopilotRoots(copilot) : []),
       ...(opencode ? selectedOpenCodeRoots(expandHome(opencode)) : []),
+      ...(gemini ? selectedGeminiRoots(gemini) : []),
     ])];
   }
   const configured = opts.settingsRoots?.length ? opts.settingsRoots : [DEFAULT_ROOT];
@@ -118,7 +123,7 @@ export function resolveRoots(opts: ResolveRootsOptions = {}): string[] {
   });
   const standardRoots = [DEFAULT_ROOT, '~/.codex/sessions', '~/.codex/archived_sessions', '~/.copilot/session-state'];
   const defaultSelection = configured.length === 1 && configured[0] === DEFAULT_ROOT || configured.length === standardRoots.length && configured.every((root, i) => root === standardRoots[i]);
-  if (defaultSelection) resolved.push(...copilotEditorRoots(env), ...openCodeDefaultRoots(env));
+  if (defaultSelection) resolved.push(...copilotEditorRoots(env), ...openCodeDefaultRoots(env), ...geminiDefaultRoots(env));
   return [...new Set(resolved)];
 }
 

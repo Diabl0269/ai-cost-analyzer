@@ -57,3 +57,8 @@ A few local-tooling notes not worth putting in the public docs:
 - OpenCode adapter: `core/opencode/` reads `opencode.db` read-only (legacy and `session_v2` layouts);
   only session/message/part tables, never auth/credential data. Sessions use virtual paths
   `<db>#opencode:<id>`; `CCA_OPENCODE_DIR` / `--opencode-dir` select sources. See `docs/dev/opencode.md`.
+
+- Gemini / Antigravity adapter: `core/gemini/` reads Gemini CLI chats (`~/.gemini/tmp/.../chats`) and
+  Antigravity brain logs (`~/.gemini/antigravity*/brain/.../logs/transcript*.jsonl` + read-only
+  `conversation_summaries.db`), never OAuth/account/settings files. `CCA_GEMINI_DIR` / `--gemini-dir`
+  and `GEMINI_CLI_HOME` select sources; `CCA_E2E_GEMINI_DIR` enables synthetic browser checks. See `docs/dev/gemini.md`.

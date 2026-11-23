@@ -55,7 +55,7 @@ export const userSettingsSchema = z.object({
   }),
   pinnedSessionIds: z.array(z.string().min(1)),
   hideScratchProjects: z.boolean(),
-  hiddenProviders: z.array(z.enum(['claude', 'codex', 'copilot', 'opencode'])).default([]),
+  hiddenProviders: z.array(z.enum(['claude', 'codex', 'copilot', 'opencode', 'gemini'])).default([]),
   reducedMotion: z.enum(['system', 'on', 'off']),
 });
 
