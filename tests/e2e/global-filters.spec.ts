@@ -26,6 +26,18 @@ test('empty historical ranges have an explicit all-history recovery', async ({ p
   await expect(page.getByRole('region', { name: 'Spend by model' })).toBeVisible();
 });
 
+test('fully unpriced token usage shows unpriced instead of an exact zero', async ({ page }) => {
+  await page.route(`**/api/sessions/${A1}`, async (route) => {
+    const original = await route.fetch();
+    const data = await original.json();
+    data.summary.unpriced = true;
+    data.summary.cost.total = 0;
+    await route.fulfill({ response: original, json: data });
+  });
+  await openRoute(page, `/sessions/${A1}`);
+  await expect(page.locator('main').getByText('Unpriced', { exact: true }).first()).toBeVisible();
+});
+
 test('missing token usage shows unavailable instead of a zero-dollar receipt', async ({ page }) => {
   await page.route(`**/api/sessions/${A1}`, async (route) => {
     const original = await route.fetch();

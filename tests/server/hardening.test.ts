@@ -9,7 +9,7 @@
  *  - an uncaught throw inside a route handler still answers with the standard error envelope
  *  - `POST /api/reindex { full: true }` is honoured regardless of how the body is framed
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -68,8 +68,19 @@ describe('settings.roots policy (unit)', () => {
   });
 
   it('allows the documented default root', () => {
-    const result = validateRoots([`${process.env.HOME}/.claude/projects`], '/does-not-matter');
-    expect(result.ok).toBe(true);
+    const home = mkdtempSync(join(tmpdir(), 'cca-default-root-'));
+    const root = join(home, '.claude', 'projects');
+    mkdirSync(root, { recursive: true });
+    const previousHome = process.env.HOME;
+    process.env.HOME = home;
+    try {
+      const result = validateRoots([root], '/does-not-matter');
+      expect(result.ok).toBe(true);
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 
   it('rejects a root that is not an existing directory', () => {
