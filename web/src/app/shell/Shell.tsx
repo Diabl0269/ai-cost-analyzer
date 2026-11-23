@@ -214,7 +214,7 @@ export function Shell() {
                 ) : null}
               </Callout>
             ) : null}
-            {!firstRun && range.provider !== 'claude' ? <p className="ui-xs muted" role="note">Codex, Copilot and OpenCode amounts are API-price estimates, not your subscription bill. Claude-only attribution is unavailable for these providers. Copilot request counts include only individually recorded calls.</p> : null}
+            {!firstRun && range.provider !== 'claude' ? <p className="ui-xs muted" role="note">Codex, Copilot, OpenCode and Gemini / Antigravity amounts are API-price estimates, not your subscription bill. Claude-only attribution is unavailable for these providers. Copilot request counts include only individually recorded calls.</p> : null}
             {showFirstRun ? <FirstRun roots={status.data?.roots ?? []} /> : <Outlet />}
           </main>
         </div>

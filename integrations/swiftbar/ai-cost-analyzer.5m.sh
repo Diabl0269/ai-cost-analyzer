@@ -28,7 +28,7 @@ ObjC.import("stdlib");
 function run() {
   var d = JSON.parse($.getenv("CCA_JSON"));
   var base = $.getenv("CCA_BASE");
-  var NAMES = { claude: "Claude Code", codex: "Codex", copilot: "Copilot", opencode: "OpenCode" };
+  var NAMES = { claude: "Claude Code", codex: "Codex", copilot: "Copilot", opencode: "OpenCode", gemini: "Gemini" };
   // null cost = unknown (unpriced or no token telemetry): never print it as $0.
   function money(u) {
     if (u.cost === null) return u.costStatus === "unpriced" ? "unpriced" : "n/a";
@@ -55,6 +55,7 @@ function run() {
   out.push("---");
   Object.keys(NAMES).forEach(function (p) {
     var t = today.byProvider[p], w = week.byProvider[p];
+    if (!t || !w) return;
     if (t.sessions + w.sessions + t.unavailableSessions + w.unavailableSessions === 0) return;
     out.push(NAMES[p] + ": " + line(t) + " today · " + line(w) + " week");
     out.push("--Today: " + tok(t.tokens.total) + " tokens, " + sess(t.sessions));

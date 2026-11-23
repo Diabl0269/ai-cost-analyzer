@@ -50,7 +50,7 @@ export function row(
   const value = (detail: SessionDetail | null): number | null => {
     if (!detail) return null;
     if (hasNoRecordedUsage(detail.summary) && ['money', 'tokens', 'percent'].includes(kind)) return null;
-    if ((detail.summary.provider === 'codex' || detail.summary.provider === 'copilot' || detail.summary.provider === 'opencode') && ['workflows', 'hooks', 'harness', 'hookTime'].includes(id)) return null;
+    if ((detail.summary.provider === 'codex' || detail.summary.provider === 'copilot' || detail.summary.provider === 'opencode' || detail.summary.provider === 'gemini') && ['workflows', 'hooks', 'harness', 'hookTime'].includes(id)) return null;
     return pick(detail);
   };
   return {

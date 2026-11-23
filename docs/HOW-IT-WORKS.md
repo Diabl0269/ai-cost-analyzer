@@ -1,6 +1,6 @@
 # How this app works, end to end
 
-A local reader over history that Claude Code, Codex, GitHub Copilot and OpenCode have already written
+A local reader over history that Claude Code, Codex, GitHub Copilot, OpenCode and Google Gemini / Antigravity have already written
 to disk. Nothing here talks to any of those vendors, and
 there is no job to start: the index follows the transcripts, and the numbers are computed when you
 ask for them.
@@ -13,7 +13,7 @@ workflow agents their own files under `<session>/subagents/`. Every assistant li
 `usage` block the API returned for that request: input, output, thinking, cache reads and cache
 writes.
 
-Codex, Copilot and OpenCode (a SQLite database) store comparable per-request token counts in their
+Codex, Copilot, OpenCode (a SQLite database), and Gemini CLI / Google Antigravity store comparable per-request token counts in their
 own formats; the adapters under `core/` normalise each into the same shape. See the README for
 the locations. This app reads those files and nothing else. No API key, no account, no network call. If a session
 is on disk it can be priced; if it is not, no amount of re-indexing will find it. The directories

@@ -7,13 +7,17 @@ export const PROVIDERS: { value: Provider; label: string }[] = [
   { value: 'codex', label: 'Codex' },
   { value: 'copilot', label: 'Copilot' },
   { value: 'opencode', label: 'OpenCode' },
+  { value: 'gemini', label: 'Gemini' },
 ];
 export function readProvider(search: string): Provider | undefined {
   const value = new URLSearchParams(search).get('provider');
-  return value === 'claude' || value === 'codex' || value === 'copilot' || value === 'opencode' ? value : undefined;
+  return value === 'claude' || value === 'codex' || value === 'copilot' || value === 'opencode' || value === 'gemini' ? value : undefined;
 }
 export function providerLabel(provider?: Provider): string {
-  return provider === 'copilot' ? 'Copilot' : provider === 'codex' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : 'Claude';
+  return provider === 'copilot' ? 'Copilot' : provider === 'codex' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : provider === 'gemini' ? 'Gemini' : 'Claude';
+}
+export function isNonClaudeProvider(provider?: Provider): provider is Exclude<Provider, 'claude'> {
+  return provider === 'codex' || provider === 'copilot' || provider === 'opencode' || provider === 'gemini';
 }
 
 /** Carry global filters across data pages without copying page-local search or pagination. */

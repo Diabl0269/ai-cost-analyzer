@@ -56,7 +56,7 @@ export function DataSection() {
           <div className={styles.card}>
             <h3>Transcript roots</h3>
             <p className="ui-xs muted-2">
-              What is actually being indexed right now. Claude Code roots can be overridden with <code>--claude-dir</code> or <code>CCA_CLAUDE_DIR</code>; Codex roots with <code>--codex-dir</code> or <code>CCA_CODEX_DIR</code>; Copilot roots with <code>--copilot-dir</code> or <code>CCA_COPILOT_DIR</code>; OpenCode with <code>--opencode-dir</code> or <code>CCA_OPENCODE_DIR</code>. These override
+              What is actually being indexed right now. Claude Code roots can be overridden with <code>--claude-dir</code> or <code>CCA_CLAUDE_DIR</code>; Codex roots with <code>--codex-dir</code> or <code>CCA_CODEX_DIR</code>; Copilot roots with <code>--copilot-dir</code> or <code>CCA_COPILOT_DIR</code>; OpenCode with <code>--opencode-dir</code> or <code>CCA_OPENCODE_DIR</code>; Gemini CLI and Antigravity with <code>--gemini-dir</code> or <code>CCA_GEMINI_DIR</code>. These override
               the configured roots, which is why this list is shown rather than edited here; change it in{' '}
               <code>~/.claude-cost-analyzer/config.json</code> or on the command line.
             </p>

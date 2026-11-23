@@ -116,7 +116,7 @@ describe('GET /api/analytics/summary (route)', () => {
     expect(res.status).toBe(200);
     const body = await jsonBody<SummaryResponse>(res);
     expect(Object.keys(body.periods).sort()).toEqual(['today', 'week']);
-    expect(Object.keys(body.periods.today.byProvider).sort()).toEqual(['claude', 'codex', 'copilot', 'opencode']);
+    expect(Object.keys(body.periods.today.byProvider).sort()).toEqual(['claude', 'codex', 'copilot', 'gemini', 'opencode']);
     expect(body.indexing).toBe(false);
     expect(body.lastIndexedAt).toBeNull();
     expect(body.budget.monthlyBudgetUsd).toBeNull();
@@ -141,7 +141,7 @@ describe('summary aggregate (real store)', () => {
     expect(s.periods.week.byProvider.claude?.tokens).toMatchObject({ input: 5000, output: 500, total: 5500 });
     expect(s.periods.week.byProvider.claude?.sessions).toBe(2);
     const hidden = await store.summary({ ...ctx, settings: { ...ctx.settings, hiddenProviders: ['claude', 'copilot'] } });
-    expect(Object.keys(hidden.periods.today.byProvider).sort()).toEqual(['codex', 'opencode']);
+    expect(Object.keys(hidden.periods.today.byProvider).sort()).toEqual(['codex', 'gemini', 'opencode']);
     expect(hidden.periods.today.total.cost).toBeCloseTo(PER_REQUEST, 9);
     expect(s.periods.week.byProvider.copilot).toMatchObject({ cost: 0, costStatus: 'recorded', sessions: 0 });
     store.close();

@@ -2,7 +2,7 @@
 
 Every number in the app is one of two kinds, and the UI always says which:
 
-- **Exact** — derived directly from the token counts the tool (Claude Code, Codex, Copilot or OpenCode) writes into each
+- **Exact** — derived directly from the token counts the tool (Claude Code, Codex, Copilot, OpenCode or Gemini / Antigravity) writes into each
   transcript line and the public list prices. Request cost, session cost, per-model cost, cache read/write split.
 - **Estimated (marked "est.")** — an allocation of exact costs to the things that filled the context window:
   a tool result, a hook's injected text, a system reminder, your prompt. Anthropic bills per request, not
@@ -252,3 +252,21 @@ As with Codex and Copilot, amounts are API list-price estimates. A message with 
 record makes the session partial rather than free; failed or tool-only turns without usage add no
 request. Subagent (child) sessions are priced as agents of the session that spawned them. Hook,
 skill and workflow attribution do not exist in OpenCode data and are shown as unavailable.
+
+## Gemini CLI & Google Antigravity accounting
+
+Google Antigravity step logs (`transcript_full.jsonl` / `transcript.jsonl`) record per-step
+`input_tokens` (already excluding `cache_read_tokens`), `cache_read_tokens`, and `output_tokens`
+(already including thinking tokens). Gemini CLI chat logs (`session-*.jsonl` and legacy `.json`)
+record Gemini API `UsageMetadata`: `input` (`promptTokenCount`) includes `cached`, `tool` is
+`toolUsePromptTokenCount`, and `thoughts` is separate from `output` (`candidatesTokenCount`);
+uncached input is `(input + tool) - cached` and billed output is `output + thoughts`.
+
+Published Google AI Studio / Gemini Developer API paid-tier rates cover Gemini 4 (`carbon`, `argon`,
+`neon`, `hydrogen`), Gemini 3 (`3.8-flash`, `3.7-flash`, `3.6-flash`, `3.5-flash`, `3.5-flash-lite`,
+`3.1-pro`, `3.1-flash-lite`, `3-pro`, `3-flash`), Gemini 2.5 (`2.5-pro`, `2.5-flash`,
+`2.5-flash-lite`), and retired `2.0-flash`. Antigravity thinking-tier suffixes (`-minimal`, `-low`,
+`-medium`, `-high`, `-xhigh`) resolve to the underlying model's rates; Gemini 3 / 3.1 / 2.5 Pro
+apply their published `>200K` context tier per request. Router aliases such as
+`gemini-pro-orchestrator` stay unpriced unless an explicit price or `estimateAs` target is configured.
+Amounts are API list-price estimates, not Google AI Pro/Ultra subscription charges.

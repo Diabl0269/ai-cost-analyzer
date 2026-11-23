@@ -170,7 +170,7 @@ export default function HooksTab() {
     },
   ];
 
-  if ((detail.summary.provider === 'codex' || detail.summary.provider === 'copilot' || detail.summary.provider === 'opencode')) {
+  if ((detail.summary.provider === 'codex' || detail.summary.provider === 'copilot' || detail.summary.provider === 'opencode' || detail.summary.provider === 'gemini')) {
     return <EmptyState title={`Attribution unavailable for ${providerLabel(detail.summary.provider)}`} description="These transcripts do not record Claude Code hook, skill or workflow attribution. Missing records do not mean no overhead or delegation occurred." />;
   }
 

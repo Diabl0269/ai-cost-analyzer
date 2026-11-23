@@ -6,6 +6,7 @@ import { Select } from '@/components/Select';
 import { Switch } from '@/components/Switch';
 import { Button } from '@/components/Button';
 import { formatModelLabel } from '@/lib/format';
+import { isNonClaudeProvider } from '@/lib/provider';
 import { ENTRYPOINTS, SESSION_SORTS, type SessionListState } from './query';
 import styles from './Toolbar.module.css';
 
@@ -66,7 +67,7 @@ export function Toolbar({ list, models, csvHref }: ToolbarProps) {
         />
       </div>
 
-      {list.query.provider !== 'codex' && list.query.provider !== 'copilot' && list.query.provider !== 'opencode' ? <Select
+      {!isNonClaudeProvider(list.query.provider) ? <Select
         label="Entrypoint"
         hideLabel
         value={filters.entrypoint}

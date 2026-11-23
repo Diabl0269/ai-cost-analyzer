@@ -1,7 +1,7 @@
 # AI Cost Analyzer
 
 A local, single-user web app that reads the conversation history your AI coding assistants already
-keep on disk — **Claude Code, OpenAI Codex, GitHub Copilot and OpenCode** — and prices every
+keep on disk — **Claude Code, OpenAI Codex, GitHub Copilot, OpenCode and Google Gemini / Antigravity** — and prices every
 conversation, turn, tool call and subagent at API list prices. Claude Code transcripts additionally
 get per-hook, workflow and harness-injection attribution.
 
@@ -21,6 +21,7 @@ Every image and the video above are the app's own bundled synthetic demo dataset
 | Codex | `~/.codex/sessions`, `~/.codex/archived_sessions` (or `CODEX_HOME`) | `--codex-dir` / `CCA_CODEX_DIR` |
 | GitHub Copilot | `~/.copilot/session-state` (or `COPILOT_HOME`), plus saved VS Code / Insiders / VSCodium chats | `--copilot-dir` / `CCA_COPILOT_DIR` |
 | OpenCode | `opencode.db` in `$XDG_DATA_HOME/opencode` (default `~/.local/share/opencode`) | `--opencode-dir` / `CCA_OPENCODE_DIR` |
+| Gemini CLI & Antigravity | `~/.gemini/tmp` and `~/.gemini/antigravity*/brain` (or `GEMINI_CLI_HOME`) | `--gemini-dir` / `CCA_GEMINI_DIR` |
 
 Use the **Provider** selector to view **All providers** or a single tool across overview,
 sessions, search, analytics, and exports. Sessions with the same working directory share one
@@ -48,6 +49,11 @@ detail. For the other tools, amounts are **API list-price estimates**, not subsc
   (OpenCode's own `cost` field is ignored, so every tool is priced on the same table). Subagent
   (child) sessions are folded into their parent. Only `opencode.db` is opened, read-only; OpenCode's
   `auth.json` and other files next to it are never read. See [`docs/dev/opencode.md`](docs/dev/opencode.md).
+- **Gemini CLI & Google Antigravity** — Antigravity step logs (`transcript_full.jsonl` / `transcript.jsonl`)
+  and Gemini CLI chat logs (`session-*.jsonl` / `.json`) are priced per request at published Google
+  Gemini API paid-tier rates (with Antigravity thinking-tier suffixes like `-low`/`-medium`/`-high`/`-xhigh`
+  mapped to the underlying model). Subagent conversations are folded into their parent, and OAuth/settings
+  files under `~/.gemini` are never read. See [`docs/dev/gemini.md`](docs/dev/gemini.md).
 
 Unknown models remain visibly unpriced until you add a price in Settings, and sessions with no token
 telemetry show an unavailable cost rather than zero.
@@ -202,6 +208,7 @@ CLI flags (`node dist/server/cli.js [flags]`; `npm start -- [flags]` to pass the
 | `--codex-dir <path>` | — | Codex home or rollout directory |
 | `--copilot-dir <path>` | — | Copilot home, session-state folder or VS Code storage root |
 | `--opencode-dir <path>` | — | OpenCode data directory (or the `opencode.db` file) |
+| `--gemini-dir <path>` | — | Gemini home (`~/.gemini`), Gemini CLI `tmp`/`chats`, or Antigravity `brain` directory |
 | `--home <path>` | — | overrides `CCA_HOME` |
 | `--reindex` | off | one-shot full rebuild; prints counts and exits without starting the server |
 | `--demo` | off | serve the synthetic demo dataset instead of any source flags/configured roots |
@@ -215,8 +222,8 @@ Environment variables:
 | `CCA_HOME` | `~/.claude-cost-analyzer` | where `index.sqlite` and `config.json` live |
 | `CCA_PORT` | `4141` | default port; `--port` overrides it |
 | `CCA_CLAUDE_DIR` | — | Claude Code transcript root, overriding `settings.roots`; `--claude-dir` overrides both |
-| `CCA_CODEX_DIR` / `CCA_COPILOT_DIR` / `CCA_OPENCODE_DIR` | — | same, for Codex, Copilot and OpenCode (`--codex-dir` etc. override) |
-| `CODEX_HOME` / `COPILOT_HOME` / `XDG_DATA_HOME` | — | move the default Codex, Copilot and OpenCode locations |
+| `CCA_CODEX_DIR` / `CCA_COPILOT_DIR` / `CCA_OPENCODE_DIR` / `CCA_GEMINI_DIR` | — | same, for Codex, Copilot, OpenCode and Gemini / Antigravity (`--codex-dir` etc. override) |
+| `CODEX_HOME` / `COPILOT_HOME` / `XDG_DATA_HOME` / `GEMINI_CLI_HOME` | — | move the default Codex, Copilot, OpenCode and Gemini / Antigravity locations |
 
 `config.json` (pricing table, plan/budget, transcript roots, theme) and `index.sqlite` (the
 searchable index) live under `CCA_HOME`. The pricing table is editable from Settings — a what-if
@@ -255,12 +262,12 @@ sandboxed shell (it opens a socket to its child process); run TypeScript one-off
 `node --import tsx/esm <file>.ts` instead.
 
 Per-module notes live in `docs/dev/`: `parse.md`, `cost-db.md`, `server.md`, `web.md`,
-`integration.md`, `validation.md`, `copilot.md`, `opencode.md`, `demo.md`, `demo-video.md`. Start with `docs/dev/README.md`.
+`integration.md`, `validation.md`, `copilot.md`, `opencode.md`, `gemini.md`, `demo.md`, `demo-video.md`. Start with `docs/dev/README.md`.
 
 ## Project layout
 
 ```
-core/       pure TypeScript domain logic: per-tool adapters (claude, codex/, copilot/, opencode/), pricing, cost/attribution, SQLite index
+core/       pure TypeScript domain logic: per-tool adapters (claude, codex/, copilot/, opencode/, gemini/), pricing, cost/attribution, SQLite index
 server/     Hono HTTP app, CLI, indexing worker, filesystem watcher
 web/        Vite + React 19 UI ("The Ledger")
 scripts/    dev orchestration, demo data/video generation, cost-state validation, screenshots

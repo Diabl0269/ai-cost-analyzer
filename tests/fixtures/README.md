@@ -242,3 +242,10 @@ Copilot fixtures: `copilot/session-state/synthetic-cli/events.jsonl` contains in
 100 (60 uncached, 30 read, 10 write) and output 20; multiplier 10 is not USD. The VS Code
 `copilot-vscode/snapshot.json` contains visible chat and context counters, not billing telemetry,
 so no request usage is invented. All content and paths are synthetic.
+
+Gemini fixture: `gemini/tmp/alpha-project/chats/session-2026-09-08T10-00-e1111111.jsonl` shares
+`/Users/dev/projects/alpha` via `.project_root` and reports one `gemini-4-carbon-medium` turn:
+2,000 prompt tokens including 500 cached (`1,500` uncached + `500` cached), 80 output + 20
+thoughts (`100` output). At Gemini 4 Carbon introductory API prices ($2 input, $0.10 cached,
+$10 output per million), expected cost is `(1500*2 + 500*0.1 + 100*10)/1e6 = $0.00405`. Opt-in via
+`CCA_E2E_GEMINI_DIR`.

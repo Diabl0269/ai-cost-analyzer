@@ -32,7 +32,7 @@ struct Summary: Codable {
 }
 
 let providerNames: [(String, String)] = [
-    ("claude", "Claude Code"), ("codex", "Codex"), ("copilot", "Copilot"), ("opencode", "OpenCode"),
+    ("claude", "Claude Code"), ("codex", "Codex"), ("copilot", "Copilot"), ("opencode", "OpenCode"), ("gemini", "Gemini"),
 ]
 
 func usd(_ v: Double) -> String {

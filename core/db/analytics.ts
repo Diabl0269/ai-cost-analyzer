@@ -788,7 +788,7 @@ export function requestCountsByProject(ctx: AnalyticsContext): Map<string, numbe
   return new Map(rows.map((row) => [str(row, 'projectId'), num(row, 'n')]));
 }
 
-const SUMMARY_PROVIDERS: readonly Provider[] = ['claude', 'codex', 'copilot', 'opencode'];
+const SUMMARY_PROVIDERS: readonly Provider[] = ['claude', 'codex', 'copilot', 'opencode', 'gemini'];
 
 /** One provider's usage in `ctx.range`. `ctx` must already be scoped to that provider. */
 export function summaryUsage(ctx: AnalyticsContext, provider: Provider): SummaryUsage {

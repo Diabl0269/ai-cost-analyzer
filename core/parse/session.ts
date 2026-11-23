@@ -5,6 +5,7 @@
 import { parseVscodeCopilotTranscript } from '../copilot/vscode.js';
 import { parseCopilotTranscript } from '../copilot/transcript.js';
 import { parseCodexTranscript } from '../codex/transcript.js';
+import { parseGeminiTranscript } from '../gemini/transcript.js';
 import { parseOpenCodeTranscript } from '../opencode/transcript.js';
 import { readFile } from 'node:fs/promises';
 import { readJsonlLines } from '../jsonl.js';
@@ -20,8 +21,11 @@ import { asRecord, num, parseJson, str } from './raw.js';
 import { parseTranscript } from './transcript.js';
 
 export async function parseSession(d: DiscoveredSession): Promise<ParsedSession> {
+  const agentMeta: Record<string, AgentMeta> = {};
   const parse = d.mainFile.sessionId.startsWith('copilot-vscode-')
     ? (file: DiscoveredFile, opts: { agentId: string | null }) => parseVscodeCopilotTranscript(file, opts.agentId)
+    : d.provider === 'gemini' || d.mainFile.provider === 'gemini'
+    ? (file: DiscoveredFile, opts: { agentId: string | null }) => parseGeminiTranscript(file, opts.agentId, agentMeta)
     : d.provider === 'opencode' || d.mainFile.provider === 'opencode'
     ? (file: DiscoveredFile, opts: { agentId: string | null }) => parseOpenCodeTranscript(file, opts.agentId)
     : d.provider === 'copilot' || d.mainFile.provider === 'copilot'
@@ -33,7 +37,6 @@ export async function parseSession(d: DiscoveredSession): Promise<ParsedSession>
   if (d.mainFile.sessionId.startsWith('copilot-vscode-') && !main.meta.cwd && d.projectDirName.startsWith('copilot-project-')) main.meta.cwd = d.projectDirPath;
 
   const agents: ParsedTranscript[] = [];
-  const agentMeta: Record<string, AgentMeta> = {};
   for (const file of d.agentFiles) {
     agents.push(await parse(file, { agentId: file.agentId ?? null }));
     await loadMeta(file, agentMeta);

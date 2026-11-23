@@ -155,9 +155,43 @@ const FAMILY_LABELS: Record<string, string> = {
   haiku: 'Haiku',
 };
 
+const GEMINI_TIERS: Record<string, string> = {
+  minimal: 'Minimal',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'XHigh',
+};
+
+function formatGeminiWord(word: string): string {
+  return word ? word[0]!.toUpperCase() + word.slice(1) : word;
+}
+
+function formatGeminiLabel(id: string): string {
+  const parts = id.replace(/^(?:google|models|vertex_ai)\//, '').replace(/^gemini-/, '').split('-').filter(Boolean);
+  if (parts.length === 0) return 'Gemini';
+  const last = parts[parts.length - 1]!;
+  const tier = parts.length > 1 ? GEMINI_TIERS[last] : undefined;
+  const core = tier ? parts.slice(0, -1) : parts;
+  const words: string[] = ['Gemini'];
+  for (let i = 0; i < core.length; i += 1) {
+    const token = core[i]!;
+    if (token === 'flash' && core[i + 1] === 'lite') {
+      words.push('Flash-Lite');
+      i += 1;
+    } else if (/^\d/.test(token)) {
+      words.push(token);
+    } else {
+      words.push(formatGeminiWord(token));
+    }
+  }
+  return tier ? `${words.join(' ')} (${tier})` : words.join(' ');
+}
+
 /**
- * `claude-haiku-4-5-20251001` → `Haiku 4.5`, `claude-opus-5[1m]` → `Opus 5 (1M)`.
- * Falls back to the raw id when it does not look like a Claude model id.
+ * `claude-haiku-4-5-20251001` → `Haiku 4.5`, `claude-opus-5[1m]` → `Opus 5 (1M)`,
+ * `gemini-4-carbon-medium` → `Gemini 4 Carbon (Medium)`.
+ * Falls back to the raw id when it does not look like a Claude or Gemini model id.
  */
 export function formatModelLabel(modelId: string): string {
   const raw = modelId.trim().toLowerCase();
@@ -167,6 +201,7 @@ export function formatModelLabel(modelId: string): string {
   let id = raw.replace('[1m]', '');
   const at = id.indexOf('@');
   if (at >= 0) id = id.slice(0, at);
+  if (/^(?:(?:google|models|vertex_ai)\/)?gemini-/.test(id)) return formatGeminiLabel(id);
   id = id.replace(/^claude-/, '').replace(/-\d{8}$/, '');
   const parts = id.split('-').filter((p) => p.length > 0);
   const familyIndex = parts.findIndex((p) => FAMILY_LABELS[p] !== undefined);
