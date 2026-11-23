@@ -123,6 +123,28 @@ describe('auth', () => {
     expect(csp).toContain("frame-ancestors 'none'");
   });
 
+  it('allows same-site iframe API requests only when embedding is configured', async () => {
+    const original = process.env.CCA_EMBED_ORIGINS;
+    const headers = {
+      host: '127.0.0.1:4141',
+      origin: 'http://127.0.0.1:4141',
+      'sec-fetch-site': 'same-site',
+    };
+    try {
+      delete process.env.CCA_EMBED_ORIGINS;
+      const standalone = buildTestApp({ port: 4141 });
+      expect((await standalone.app.request('/api/auth/session', { method: 'POST', headers })).status).toBe(403);
+      standalone.cleanup();
+
+      process.env.CCA_EMBED_ORIGINS = 'http://127.0.0.1:3000';
+      ctx = buildTestApp({ port: 4141 });
+      expect((await ctx.app.request('/api/auth/session', { method: 'POST', headers })).status).toBe(204);
+    } finally {
+      if (original === undefined) delete process.env.CCA_EMBED_ORIGINS;
+      else process.env.CCA_EMBED_ORIGINS = original;
+    }
+  });
+
   it('allows configured loopback embed origins in CSP', async () => {
     const original = process.env.CCA_EMBED_ORIGINS;
     process.env.CCA_EMBED_ORIGINS = 'http://127.0.0.1:3000, http://localhost:3000';

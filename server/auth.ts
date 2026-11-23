@@ -25,6 +25,8 @@ export interface AuthOptions {
    * `dev` is true, so production never widens its allow-list from the environment.
    */
   devOrigins?: string;
+  /** Explicitly allow same-site iframe requests when a loopback parent is configured. */
+  embedOrigins?: string[];
 }
 
 /** Holds the single in-memory session token for this server process's lifetime. */
@@ -95,7 +97,8 @@ export function hostGuard(opts: AuthOptions): MiddlewareHandler {
       return jsonError(c, 403, 'forbidden', 'request Host is not allowed');
     }
     const secFetchSite = c.req.header('sec-fetch-site');
-    if (secFetchSite !== undefined && secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
+    const allowsEmbeddedSameSite = secFetchSite === 'same-site' && (opts.embedOrigins?.length ?? 0) > 0;
+    if (secFetchSite !== undefined && secFetchSite !== 'same-origin' && secFetchSite !== 'none' && !allowsEmbeddedSameSite) {
       return jsonError(c, 403, 'forbidden', 'cross-site request blocked');
     }
     const origin = c.req.header('origin');

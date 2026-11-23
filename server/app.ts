@@ -52,6 +52,7 @@ export function createApp(deps: AppDeps): Hono {
       port: deps.port,
       dev: deps.dev,
       ...(devOrigins() ? { devOrigins: devOrigins() } : {}),
+      embedOrigins,
     }),
   );
   app.route('/api/auth', authRoutes(authState));
