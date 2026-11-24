@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { PlanPreset, UserSettings } from '@core/types';
-import { PLAN_PRESETS, applyPlanPreset } from '@core/settings';
+import type { MenubarSettings, PlanPreset, Provider, UserSettings } from '@core/types';
+import { ALL_PROVIDERS, PLAN_PRESETS, applyPlanPreset, defaultMenubarSettings } from '@core/settings';
 import { Button, Callout, NumberField, SegmentedControl, Select, Skeleton, Switch, useToast } from '@/components';
 import { PROVIDERS } from '@/lib/provider';
 import { useCurrency } from '@/lib/currency';
@@ -16,10 +16,54 @@ const NAV = [
   { id: 'pricing', label: 'Pricing' },
   { id: 'plan', label: 'Plan' },
   { id: 'budget', label: 'Budget' },
+  { id: 'menubar', label: 'Menu bar' },
   { id: 'currency', label: 'Currency' },
   { id: 'appearance', label: 'Appearance' },
   { id: 'data', label: 'Data' },
 ];
+
+const PROVIDER_COLORS: Record<Provider, string> = {
+  claude: '#d9754f',
+  codex: '#29b580',
+  copilot: '#4085f5',
+  opencode: '#1aadca',
+  gemini: '#8f66f5',
+};
+
+function MiniPiePreview({ slices, size = 16 }: { slices: { color: string; fraction: number }[]; size?: number }) {
+  const r = size / 2 - 1;
+  const cx = size / 2;
+  const cy = size / 2;
+  let angle = -Math.PI / 2;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" style={{ flexShrink: 0 }}>
+      <circle cx={cx} cy={cy} r={r} fill="var(--paper-3)" stroke="var(--rule-strong)" strokeWidth="1" />
+      {slices.map((slice, i) => {
+        const clamped = Math.min(1, Math.max(0, slice.fraction));
+        if (clamped <= 0) return null;
+        if (clamped >= 0.999) {
+          return <circle key={i} cx={cx} cy={cy} r={r} fill={slice.color} />;
+        }
+        const start = angle;
+        const end = angle + clamped * Math.PI * 2;
+        angle = end;
+        const x1 = cx + r * Math.cos(start);
+        const y1 = cy + r * Math.sin(start);
+        const x2 = cx + r * Math.cos(end);
+        const y2 = cy + r * Math.sin(end);
+        const largeArc = clamped > 0.5 ? 1 : 0;
+        return (
+          <path
+            key={i}
+            d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`}
+            fill={slice.color}
+          />
+        );
+      })}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--ink-3)" strokeOpacity="0.4" strokeWidth="0.9" />
+    </svg>
+  );
+}
 
 const PLAN_ORDER: PlanPreset[] = ['none', 'pro', 'max5', 'max20', 'team-premium', 'custom'];
 
@@ -116,21 +160,173 @@ export default function SettingsPage() {
                 </div>
               </Section>
 
-              <Section id="budget" title="Budget" note="drives the forecast on the overview">
-                <div className={`${styles.card} ${styles.fields}`}>
-                  <NumberField
-                    label="Monthly budget"
-                    value={current.monthlyBudgetUsd}
-                    onChange={(value) => edit({ ...current, monthlyBudgetUsd: value })}
-                    min={0}
-                    step={10}
-                    prefix="$"
-                    suffix="/ month"
-                    width={220}
-                    placeholder="No budget"
-                    hint="Leave empty for no budget. The forecast is spend so far ÷ days elapsed × days in month."
-                  />
+              <Section id="budget" title="Budget" note="drives the forecast on the overview and the menu-bar pie charts">
+                <div className={`${styles.card} ${styles.budgetCard}`}>
+                  <div className={styles.fields}>
+                    <NumberField
+                      label="Monthly budget"
+                      value={current.monthlyBudgetUsd}
+                      onChange={(value) => edit({ ...current, monthlyBudgetUsd: value })}
+                      min={0}
+                      step={10}
+                      prefix="$"
+                      suffix="/ month"
+                      width={220}
+                      placeholder="No budget"
+                      hint="Leave empty for no shared budget. The forecast is spend so far ÷ days elapsed × days in month."
+                    />
+                  </div>
+
+                  <fieldset className={styles.budgetGroup}>
+                    <legend className={styles.budgetLegend}>Tools counted in monthly budget</legend>
+                    <p className="ui-xs muted-2">
+                      Unchecked tools are treated as unlimited and excluded from the shared monthly budget.
+                    </p>
+                    <div className={styles.providerPills}>
+                      {PROVIDERS.map((provider) => {
+                        const included =
+                          current.budgetProviders == null
+                            ? true
+                            : current.budgetProviders.includes(provider.value);
+                        return (
+                          <label
+                            key={provider.value}
+                            className={[styles.providerPill, included ? styles.providerPillOn : null]
+                              .filter(Boolean)
+                              .join(' ')}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={included}
+                              onChange={(event) => {
+                                const base = current.budgetProviders ?? [...ALL_PROVIDERS];
+                                const nextList = event.target.checked
+                                  ? [...new Set([...base, provider.value])]
+                                  : base.filter((p) => p !== provider.value);
+                                const normalized =
+                                  nextList.length === ALL_PROVIDERS.length ? null : nextList;
+                                edit({ ...current, budgetProviders: normalized });
+                              }}
+                            />
+                            <span
+                              className={styles.providerDot}
+                              style={{ background: PROVIDER_COLORS[provider.value] }}
+                              aria-hidden="true"
+                            />
+                            <span>{provider.label}</span>
+                            {!included ? <span className={styles.unlimitedTag}>unlimited</span> : null}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+
+                  <fieldset className={styles.budgetGroup}>
+                    <legend className={styles.budgetLegend}>Per-tool monthly caps (optional)</legend>
+                    <p className="ui-xs muted-2">
+                      Set an individual monthly cap for specific tools to show their own pie chart, or leave empty for unlimited.
+                    </p>
+                    <div className={styles.providerBudgetGrid}>
+                      {PROVIDERS.map((provider) => {
+                        const val = current.providerBudgets?.[provider.value] ?? null;
+                        return (
+                          <NumberField
+                            key={provider.value}
+                            label={`${provider.label} cap`}
+                            value={val}
+                            onChange={(value) => {
+                              const nextBudgets = { ...(current.providerBudgets ?? {}) };
+                              if (value === null || value <= 0) {
+                                delete nextBudgets[provider.value];
+                              } else {
+                                nextBudgets[provider.value] = value;
+                              }
+                              edit({ ...current, providerBudgets: nextBudgets });
+                            }}
+                            min={0}
+                            step={10}
+                            prefix="$"
+                            placeholder="Unlimited"
+                            width={160}
+                          />
+                        );
+                      })}
+                    </div>
+                  </fieldset>
                 </div>
+              </Section>
+
+              <Section id="menubar" title="Menu bar" note="how monthly budget pie charts appear in the macOS widget">
+                {(() => {
+                  const menubar: MenubarSettings = {
+                    ...defaultMenubarSettings(),
+                    ...(current.menubar ?? {}),
+                  };
+                  const updateMenubar = (patch: Partial<MenubarSettings>) => {
+                    commit({ ...current, menubar: { ...menubar, ...patch } }, 'Menu-bar preference saved');
+                  };
+                  const activeCounted = current.budgetProviders ?? [...ALL_PROVIDERS];
+                  const sharedSlices = activeCounted.slice(0, 3).map((p, i, arr) => ({
+                    color: PROVIDER_COLORS[p],
+                    fraction: 0.62 / Math.max(1, arr.length) * (i === 0 ? 1.2 : 0.9),
+                  }));
+                  const perToolEntries = PROVIDERS.filter(
+                    (p) => (current.providerBudgets?.[p.value] ?? 0) > 0,
+                  );
+                  const showSharedPreview = menubar.showBudgetPie && (current.monthlyBudgetUsd ?? 0) > 0;
+                  const showToolPreviews = menubar.showProviderPies && perToolEntries.length > 0;
+                  return (
+                    <div className={`${styles.card} ${styles.stackFields}`}>
+                      <div className={styles.menubarPreview} aria-label="Menu bar preview">
+                        <span className="ui-xs muted-2">Preview</span>
+                        <div className={styles.menubarPill}>
+                          {showSharedPreview ? (
+                            <MiniPiePreview slices={sharedSlices} size={16} />
+                          ) : null}
+                          {showToolPreviews
+                            ? perToolEntries.map((p) => (
+                                <MiniPiePreview
+                                  key={p.value}
+                                  slices={[{ color: PROVIDER_COLORS[p.value], fraction: 0.45 }]}
+                                  size={16}
+                                />
+                              ))
+                            : null}
+                          {menubar.showTodayCost || (!showSharedPreview && !showToolPreviews) ? (
+                            <span className={styles.menubarPreviewText}>$4.20 today</span>
+                          ) : null}
+                        </div>
+                        {!showSharedPreview && !showToolPreviews ? (
+                          <span className="ui-xs muted-2">Set a monthly budget above to show a pie chart.</span>
+                        ) : null}
+                      </div>
+                      <Switch
+                        checked={menubar.showBudgetPie}
+                        onChange={(checked) => updateMenubar({ showBudgetPie: checked })}
+                        label="Shared budget pie chart in menu bar"
+                        description="Displays a small color-coded pie chart in the macOS menu bar showing how much of your shared budget has been used this month."
+                      />
+                      <Switch
+                        checked={menubar.showProviderPies}
+                        onChange={(checked) => updateMenubar({ showProviderPies: checked })}
+                        label="Per-tool pie charts in menu bar"
+                        description="Adds a small pie chart for each tool that has its own monthly cap set above."
+                      />
+                      <Switch
+                        checked={menubar.showMenuPie}
+                        onChange={(checked) => updateMenubar({ showMenuPie: checked })}
+                        label="Budget pie chart in opened menu"
+                        description="Displays an expanded pie chart with per-tool breakdown and forecast at the top of the widget menu."
+                      />
+                      <Switch
+                        checked={menubar.showTodayCost}
+                        onChange={(checked) => updateMenubar({ showTodayCost: checked })}
+                        label="Today’s spend in menu bar"
+                        description="Turn off to show only the pie chart(s) in the menu bar when a budget is active."
+                      />
+                    </div>
+                  );
+                })()}
               </Section>
 
               <Section id="currency" title="Currency" note="display only — every figure is computed in USD">

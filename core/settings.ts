@@ -3,7 +3,18 @@
  * Persisted in `~/.claude-cost-analyzer/config.json` by the server, never in the DB.
  */
 import { z } from 'zod';
-import type { PlanPreset, UserSettings } from './types.js';
+import type { MenubarSettings, PlanPreset, Provider, UserSettings } from './types.js';
+
+export const ALL_PROVIDERS: readonly Provider[] = ['claude', 'codex', 'copilot', 'opencode', 'gemini'];
+
+export function defaultMenubarSettings(): MenubarSettings {
+  return {
+    showBudgetPie: true,
+    showProviderPies: true,
+    showMenuPie: true,
+    showTodayCost: true,
+  };
+}
 
 export interface PlanPresetInfo {
   preset: PlanPreset;
@@ -29,6 +40,9 @@ export function defaultSettings(): UserSettings {
     theme: 'system',
     plan: { preset: 'none', monthlyUsd: 0, label: PLAN_PRESETS.none.label },
     monthlyBudgetUsd: null,
+    budgetProviders: null,
+    providerBudgets: {},
+    menubar: defaultMenubarSettings(),
     currency: { code: 'USD', rate: 1 },
     pinnedSessionIds: [],
     hideScratchProjects: true,
@@ -38,6 +52,28 @@ export function defaultSettings(): UserSettings {
 }
 
 const planPresetSchema = z.enum(['none', 'pro', 'max5', 'max20', 'team-premium', 'custom']);
+const providerSchema = z.enum(['claude', 'codex', 'copilot', 'opencode', 'gemini']);
+
+const providerBudgetsSchema = z
+  .object({
+    claude: z.number().min(0).optional(),
+    codex: z.number().min(0).optional(),
+    copilot: z.number().min(0).optional(),
+    opencode: z.number().min(0).optional(),
+    gemini: z.number().min(0).optional(),
+  })
+  .optional()
+  .default({});
+
+const menubarSettingsSchema = z
+  .object({
+    showBudgetPie: z.boolean().default(true),
+    showProviderPies: z.boolean().default(true),
+    showMenuPie: z.boolean().default(true),
+    showTodayCost: z.boolean().default(true),
+  })
+  .optional()
+  .default(() => defaultMenubarSettings());
 
 export const userSettingsSchema = z.object({
   version: z.literal(1),
@@ -49,13 +85,16 @@ export const userSettingsSchema = z.object({
     label: z.string(),
   }),
   monthlyBudgetUsd: z.number().min(0).nullable(),
+  budgetProviders: z.array(providerSchema).nullable().optional().default(null),
+  providerBudgets: providerBudgetsSchema,
+  menubar: menubarSettingsSchema,
   currency: z.object({
     code: z.string().trim().length(3).toUpperCase(),
     rate: z.number().gt(0),
   }),
   pinnedSessionIds: z.array(z.string().min(1)),
   hideScratchProjects: z.boolean(),
-  hiddenProviders: z.array(z.enum(['claude', 'codex', 'copilot', 'opencode', 'gemini'])).default([]),
+  hiddenProviders: z.array(providerSchema).default([]),
   reducedMotion: z.enum(['system', 'on', 'off']),
 });
 

@@ -479,12 +479,29 @@ export interface CostBreakdown {
 
 export type PlanPreset = 'none' | 'pro' | 'max5' | 'max20' | 'team-premium' | 'custom';
 
+export interface MenubarSettings {
+  /** Show a small pie chart in the macOS menu bar for the monthly budget. */
+  showBudgetPie: boolean;
+  /** Show separate small pie charts in the menu bar for tools that have their own monthly budget. */
+  showProviderPies: boolean;
+  /** Show the monthly budget pie chart card inside the opened widget menu. */
+  showMenuPie: boolean;
+  /** Show today's spend text in the menu bar alongside any pie chart(s). */
+  showTodayCost: boolean;
+}
+
 export interface UserSettings {
   version: 1;
   roots: string[];
   theme: 'system' | 'paper' | 'slate';
   plan: { preset: PlanPreset; monthlyUsd: number; label: string };
   monthlyBudgetUsd: number | null;
+  /** Providers counted toward `monthlyBudgetUsd`. `null` or omitted means all providers. */
+  budgetProviders?: Provider[] | null;
+  /** Optional per-provider monthly budget limits in USD; omitted providers are unlimited. */
+  providerBudgets?: Partial<Record<Provider, number>>;
+  /** Menu-bar widget display preferences. */
+  menubar?: MenubarSettings;
   currency: { code: string; rate: number };
   pinnedSessionIds: string[];
   /** hide the tmp scratch project (cwd under /private/var/folders or /tmp) by default */
@@ -566,6 +583,7 @@ export type IndexEvent =
   | { type: 'sessionsChanged'; sessionIds: string[] }
   | { type: 'indexed'; at: string; indexError?: string; indexFailures?: IndexFailure[]; indexFailureCount?: number }
   | { type: 'error'; message: string; indexFailures?: IndexFailure[]; indexFailureCount?: number }
+  | { type: 'settingsChanged' }
   | { type: 'ping' };
 
 export interface ProjectSummary {
@@ -974,6 +992,12 @@ export interface BudgetStatus {
   forecast: number;
   daysElapsed: number;
   daysInMonth: number;
+  /** Providers counted toward `monthlyBudgetUsd`. Absent when all providers are counted. */
+  providers?: Provider[];
+  /** Current calendar month spend per provider (USD), including tools excluded from the budget. */
+  spentByProvider?: Partial<Record<Provider, number>>;
+  /** Optional per-provider monthly budget limits in USD. */
+  providerBudgets?: Partial<Record<Provider, number>>;
 }
 
 export interface Insight {
@@ -1054,6 +1078,7 @@ export interface SummaryResponse {
   indexFailureCount?: number;
   lastIndexedAt: string | null;
   budget: BudgetStatus;
+  menubar?: MenubarSettings;
 }
 
 export interface ToolAnalyticsRow {

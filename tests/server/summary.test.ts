@@ -120,6 +120,12 @@ describe('GET /api/analytics/summary (route)', () => {
     expect(body.indexing).toBe(false);
     expect(body.lastIndexedAt).toBeNull();
     expect(body.budget.monthlyBudgetUsd).toBeNull();
+    expect(body.menubar).toEqual({
+      showBudgetPie: true,
+      showProviderPies: true,
+      showMenuPie: true,
+      showTodayCost: true,
+    });
     expect(body.periods.today.byProvider.codex?.cost).toBeNull();
   });
 });
@@ -170,6 +176,32 @@ describe('summary aggregate (real store)', () => {
       sessions: 0,
       unavailableSessions: 0,
     });
+    store.close();
+  });
+
+  it('scopes monthly budget to budgetProviders while reporting per-provider spend and limits', async () => {
+    const store = await storeFor([
+      { id: 'oc', provider: 'opencode', days: [2, 7] },
+      { id: 'cp', provider: 'copilot', days: [7] },
+      { id: 'gm', provider: 'gemini', days: [3, 4, 7] },
+    ]);
+    const s = await store.summary({
+      ...ctx,
+      settings: {
+        ...ctx.settings,
+        monthlyBudgetUsd: 100,
+        budgetProviders: ['opencode', 'copilot'],
+        providerBudgets: { opencode: 40 },
+      },
+    });
+    // Only opencode (2 reqs) + copilot (1 req) count toward the shared $100 budget; gemini (3 reqs) is unlimited.
+    expect(s.budget.monthlyBudgetUsd).toBe(100);
+    expect(s.budget.providers).toEqual(['opencode', 'copilot']);
+    expect(s.budget.spent).toBeCloseTo(3 * PER_REQUEST, 9);
+    expect(s.budget.spentByProvider?.opencode).toBeCloseTo(2 * PER_REQUEST, 9);
+    expect(s.budget.spentByProvider?.copilot).toBeCloseTo(PER_REQUEST, 9);
+    expect(s.budget.spentByProvider?.gemini).toBeCloseTo(3 * PER_REQUEST, 9);
+    expect(s.budget.providerBudgets).toEqual({ opencode: 40 });
     store.close();
   });
 });

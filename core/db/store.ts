@@ -648,7 +648,7 @@ class SqliteStore implements Store {
       .filter((row) => row.sessions > 0 || row.requests > 0 || row.cost !== 0)
       .sort((a, b) => b.cost - a.cost);
 
-    const monthlyDaily = this.monthlyDaily(ctx, analytics.resolve, q);
+    const monthly = this.monthlyBreakdown(ctx, analytics.resolve, q);
     const insightsInput = buildInsightsInput(analytics, cost.total);
 
     return {
@@ -672,36 +672,77 @@ class SqliteStore implements Store {
       byCategory: categoriesInRange(analytics, cost),
       topSessions: sessions.slice(0, TOP_SESSIONS),
       plan: planComparison(daily, ctx.settings),
-      budget: budgetStatus(monthlyDaily, ctx.settings, nowOf(ctx)),
+      budget: budgetStatus(monthly.daily, ctx.settings, nowOf(ctx), monthly.extras),
       insights: computeInsights(insightsInput, ctx).slice(0, 5),
       unpricedModels: byModel.filter(row => row.unpriced).map(row => row.model),
     };
   }
 
-  /** Daily costs for the calendar month containing `now`, independent of the selected range. */
-  private monthlyDaily(ctx: QueryContext, resolve: PriceResolver, q: RangeQuery): { date: string; cost: number }[] {
+  /** Daily costs + per-provider totals for the calendar month containing `now`, independent of the selected range. */
+  private monthlyBreakdown(
+    ctx: QueryContext,
+    resolve: PriceResolver,
+    q: RangeQuery,
+    opts?: { excludeHidden?: boolean },
+  ): {
+    daily: { date: string; cost: number }[];
+    extras: {
+      providers?: Provider[];
+      spentByProvider: Partial<Record<Provider, number>>;
+      providerBudgets?: Partial<Record<Provider, number>>;
+    };
+  } {
     const now = nowOf(ctx);
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const providerScope = sessionScope({ provider: q.provider }, ctx.settings, { includeHidden: true });
+    const providerScope = sessionScope({ provider: q.provider }, ctx.settings, {
+      includeHidden: !opts?.excludeHidden,
+    });
     const rows = this.db
       .prepare(
-        `SELECT dateLocal, model, speed, serviceTier, inferenceGeo,
-          SUM(input) AS input, SUM(output) AS output, SUM(cacheRead) AS cacheRead, SUM(cache5m) AS cache5m,
-          SUM(cache1h) AS cache1h, SUM(cacheAssumed) AS cacheAssumed, SUM(thinking) AS thinking,
-          SUM(webSearchRequests) AS webSearchRequests,
-          SUM(webFetchRequests) AS webFetchRequests, contextTokens AS pricingContextTokens, SUM(contextTokens) AS contextTokens
-         FROM requests WHERE dateLocal LIKE ? AND sessionId IN (SELECT s.id FROM sessions s${providerScope.sql})
-         GROUP BY dateLocal, model, speed, serviceTier, inferenceGeo, contextTokens`,
+        `SELECT r.dateLocal AS dateLocal, s.provider AS provider, r.model AS model, r.speed AS speed,
+          r.serviceTier AS serviceTier, r.inferenceGeo AS inferenceGeo,
+          SUM(r.input) AS input, SUM(r.output) AS output, SUM(r.cacheRead) AS cacheRead, SUM(r.cache5m) AS cache5m,
+          SUM(r.cache1h) AS cache1h, SUM(r.cacheAssumed) AS cacheAssumed, SUM(r.thinking) AS thinking,
+          SUM(r.webSearchRequests) AS webSearchRequests,
+          SUM(r.webFetchRequests) AS webFetchRequests, r.contextTokens AS pricingContextTokens, SUM(r.contextTokens) AS contextTokens
+         FROM requests r
+         JOIN sessions s ON s.id = r.sessionId
+         WHERE r.dateLocal LIKE ? AND r.sessionId IN (SELECT s.id FROM sessions s${providerScope.sql})
+         GROUP BY r.dateLocal, s.provider, r.model, r.speed, r.serviceTier, r.inferenceGeo, r.contextTokens`,
       )
       .all(`${month}-%`, ...providerScope.params) as Row[];
+    const configuredProviders = !q.provider && Array.isArray(ctx.settings.budgetProviders)
+      ? ctx.settings.budgetProviders
+      : null;
+    const allowedSet = configuredProviders ? new Set<Provider>(configuredProviders) : null;
     const byDate = new Map<string, number>();
+    const spentByProvider: Partial<Record<Provider, number>> = {};
     for (const row of rows) {
       const resolved = resolve(str(row, 'model'), flagsOf(row));
       const cost = costOfUsage(usageOf(row, ctx.pricing), resolved, ctx.pricing.webSearchPer1000).total;
-      const date = str(row, 'dateLocal');
-      byDate.set(date, (byDate.get(date) ?? 0) + cost);
+      const provider = (str(row, 'provider') || 'claude') as Provider;
+      spentByProvider[provider] = (spentByProvider[provider] ?? 0) + cost;
+      if (!allowedSet || allowedSet.has(provider)) {
+        const date = str(row, 'dateLocal');
+        byDate.set(date, (byDate.get(date) ?? 0) + cost);
+      }
     }
-    return [...byDate.entries()].map(([date, cost]) => ({ date, cost }));
+    const positiveProviderBudgets: Partial<Record<Provider, number>> = {};
+    if (ctx.settings.providerBudgets) {
+      for (const [k, v] of Object.entries(ctx.settings.providerBudgets)) {
+        const p = k as Provider;
+        if (opts?.excludeHidden && ctx.settings.hiddenProviders.includes(p)) continue;
+        if (typeof v === 'number' && v > 0) positiveProviderBudgets[p] = v;
+      }
+    }
+    return {
+      daily: [...byDate.entries()].map(([date, cost]) => ({ date, cost })),
+      extras: {
+        ...(configuredProviders ? { providers: configuredProviders } : {}),
+        spentByProvider,
+        ...(Object.keys(positiveProviderBudgets).length > 0 ? { providerBudgets: positiveProviderBudgets } : {}),
+      },
+    };
   }
 
   async summary(ctx: QueryContext): Promise<StoreSummary> {
@@ -716,10 +757,11 @@ class SqliteStore implements Store {
       return { range: { from, to: today }, total: combineSummaryUsage(Object.values(byProvider) as SummaryUsage[]), byProvider };
     };
     const resolve = resolverFor(ctx, {});
+    const monthly = this.monthlyBreakdown(ctx, resolve, {}, { excludeHidden: true });
     return {
       generatedAt: now.toISOString(),
       periods: { today: periodFor(today), week: periodFor(presetDay(now, 6)) },
-      budget: budgetStatus(this.monthlyDaily(ctx, resolve, {}), ctx.settings, now),
+      budget: budgetStatus(monthly.daily, ctx.settings, now, monthly.extras),
     };
   }
 

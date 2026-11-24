@@ -245,3 +245,107 @@
 .dialogWide {
   grid-column: 1 / -1;
 }
+
+.budgetCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+.budgetGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin: 0;
+  padding: var(--s3) 0 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.budgetLegend {
+  font-size: var(--fs-13);
+  font-weight: 560;
+  color: var(--ink);
+  padding: 0;
+}
+
+.providerPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s1);
+}
+
+.providerPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-size: var(--fs-12);
+  cursor: pointer;
+  user-select: none;
+}
+
+.providerPill input {
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+.providerPillOn {
+  border-color: var(--ink-3);
+  background: var(--paper-3);
+  color: var(--ink);
+  font-weight: 520;
+}
+
+.providerDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.unlimitedTag {
+  font-size: 11px;
+  color: var(--ink-3);
+  font-style: italic;
+}
+
+.providerBudgetGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  margin-top: var(--s1);
+}
+
+.menubarPreview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--rule);
+  border-radius: var(--r2);
+  background: var(--paper);
+}
+
+.menubarPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--paper-3);
+  border: 1px solid var(--rule-strong);
+  font-family: var(--font-ui);
+  font-size: var(--fs-12);
+  color: var(--ink);
+}
+
+.menubarPreviewText {
+  font-variant-numeric: tabular-nums;
+}

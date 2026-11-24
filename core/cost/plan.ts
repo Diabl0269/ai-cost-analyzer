@@ -2,7 +2,7 @@
  * Subscription comparison and budget forecast (SPEC §10.1, §10.2).
  * Dates are local calendar dates (`YYYY-MM-DD`), matching how the DB stores them.
  */
-import type { BudgetStatus, PlanComparison, UserSettings } from '../types.js';
+import type { BudgetStatus, PlanComparison, Provider, UserSettings } from '../types.js';
 
 /** Minimal shape shared with `DailyPoint`. */
 export interface DailyCost {
@@ -48,6 +48,12 @@ function daysInMonth(year: number, monthIndex: number): number {
   return new Date(year, monthIndex + 1, 0).getDate();
 }
 
+export interface BudgetStatusExtras {
+  providers?: Provider[];
+  spentByProvider?: Partial<Record<Provider, number>>;
+  providerBudgets?: Partial<Record<Provider, number>>;
+}
+
 /**
  * Spend so far this calendar month plus a linear run-rate forecast for month end.
  * `now` is injectable so tests do not depend on the wall clock.
@@ -56,6 +62,7 @@ export function budgetStatus(
   dailyCosts: readonly DailyCost[],
   settings: UserSettings,
   now: Date,
+  extras?: BudgetStatusExtras,
 ): BudgetStatus {
   const month = localDateKey(now).slice(0, 7);
   let spent = 0;
@@ -71,5 +78,10 @@ export function budgetStatus(
     forecast: elapsed > 0 ? (spent / elapsed) * total : spent,
     daysElapsed: elapsed,
     daysInMonth: total,
+    ...(extras?.providers ? { providers: extras.providers } : {}),
+    ...(extras?.spentByProvider ? { spentByProvider: extras.spentByProvider } : {}),
+    ...(extras?.providerBudgets && Object.keys(extras.providerBudgets).length > 0
+      ? { providerBudgets: extras.providerBudgets }
+      : {}),
   };
 }
