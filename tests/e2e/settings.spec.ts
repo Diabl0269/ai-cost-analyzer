@@ -112,6 +112,44 @@ test.describe('settings', () => {
     await expect(page.getByText('Settings saved')).toBeVisible();
   });
 
+  test('budget provider selection and menu-bar pie settings round-trip through the API', async ({ page, request }) => {
+    await openRoute(page, '/settings');
+    await page.getByLabel('Monthly budget').fill('100');
+    await page.getByRole('group', { name: 'Tools counted in monthly budget' }).getByLabel('Gemini').uncheck();
+    await page.getByLabel('OpenCode cap').fill('40');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByText('Settings saved')).toBeVisible();
+
+    const stored = await request.get('/api/settings');
+    expect(stored.status()).toBe(200);
+    const body = (await stored.json()) as {
+      monthlyBudgetUsd: number | null;
+      budgetProviders: string[] | null;
+      providerBudgets: Record<string, number>;
+      menubar: { showBudgetPie: boolean; showTodayCost: boolean };
+    };
+    expect(body.monthlyBudgetUsd).toBe(100);
+    expect(body.budgetProviders).toEqual(['claude', 'codex', 'copilot', 'opencode']);
+    expect(body.providerBudgets).toEqual({ opencode: 40 });
+    expect(body.menubar.showBudgetPie).toBe(true);
+
+    // Toggle a menu-bar switch (commits immediately)
+    await page.getByLabel('Today’s spend in menu bar').click();
+    await expect(page.getByText('Menu-bar preference saved')).toBeVisible();
+    const afterToggle = (await (await request.get('/api/settings')).json()) as {
+      menubar: { showTodayCost: boolean };
+    };
+    expect(afterToggle.menubar.showTodayCost).toBe(false);
+
+    // Restore clean defaults
+    await page.getByLabel('Today’s spend in menu bar').click();
+    await page.getByRole('group', { name: 'Tools counted in monthly budget' }).getByLabel('Gemini').check();
+    await page.getByLabel('OpenCode cap').fill('');
+    await page.getByLabel('Monthly budget').fill('');
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page.getByText('Settings saved')).toBeVisible();
+  });
+
   test('offers a full re-scan under its accurate name', async ({ page }) => {
     await openRoute(page, '/settings');
     await expect(page.getByRole('button', { name: 'Re-scan all roots' })).toBeVisible();

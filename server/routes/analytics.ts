@@ -1,5 +1,6 @@
 /** `GET /api/analytics/{overview,summary,tools,models,hooks,attribution,insights}` */
 import { Hono } from 'hono';
+import { defaultMenubarSettings } from '../../core/settings.js';
 import type { SummaryResponse } from '../../core/types.js';
 import type { AppDeps } from '../deps.js';
 import { queryContext } from '../deps.js';
@@ -25,6 +26,7 @@ export function analyticsRoutes(deps: AppDeps): Hono {
       ...(idx.error ? { indexError: idx.error } : {}),
       ...(failures > 0 ? { indexFailureCount: failures } : {}),
       lastIndexedAt: idx.lastIndexedAt,
+      menubar: deps.config.get().settings.menubar ?? defaultMenubarSettings(),
     };
     return c.json(response);
   });

@@ -4,6 +4,7 @@ import { plural } from '@core/pricing/format.js';
 import { Callout, Money } from '@/components';
 import type { CurrencyDisplay } from '@/lib/format';
 import { formatCount, formatDate, formatPercent } from '@/lib/format';
+import { providerLabel } from '@/lib/provider';
 import styles from './Overview.module.css';
 
 export interface BudgetPanelProps {
@@ -35,10 +36,17 @@ export function BudgetPanel({ budget, currency }: BudgetPanelProps) {
   const over = budget.spent > limit;
   const forecastOver = budget.forecast > limit;
 
+  const scopeNote =
+    budget.providers && budget.providers.length > 0
+      ? ` · ${budget.providers.map((p) => providerLabel(p)).join(' + ')}`
+      : '';
+
   return (
     <div className={styles.budget}>
       <div className="cluster cluster-between">
-        <span className="eyebrow">{formatDate(`${budget.month}-01`, 'month')} budget</span>
+        <span className="eyebrow">
+          {formatDate(`${budget.month}-01`, 'month')} budget{scopeNote}
+        </span>
         <span className="ui-sm">
           <Money usd={budget.spent} currency={currency} tone={over ? 'cost' : 'none'} /> of{' '}
           <Money usd={limit} currency={currency} /> · {formatPercent(budget.spent / limit)}

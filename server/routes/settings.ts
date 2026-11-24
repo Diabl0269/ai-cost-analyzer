@@ -25,7 +25,9 @@ export function settingsRoutes(deps: AppDeps): Hono {
       if (reasons.has('sensitive_location')) parts.push('point at a disallowed system or credential location');
       return badRequest(c, `one or more roots ${parts.join(', or ')}`);
     }
-    return c.json(deps.config.updateSettings(body.data));
+    const updated = deps.config.updateSettings(body.data);
+    deps.sse.broadcast({ type: 'settingsChanged' });
+    return c.json(updated);
   });
 
   return app;
